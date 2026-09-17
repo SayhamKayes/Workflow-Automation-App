@@ -91,7 +91,7 @@ export const WorkflowForm: React.FC<WorkflowFormProps> = ({
 
     const newEntry: WorkflowItem = {
       id: 'wf_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
-      sheetName: activeSheet || 'Home Works',
+      sheetName: activeSheet || 'Untitled Worksheet',
       date,
       work1: work1.trim(),
       work2: work2.trim() || undefined,
@@ -294,8 +294,9 @@ export const WorkflowForm: React.FC<WorkflowFormProps> = ({
             </label>
             <VoiceInputButton
               fieldName="Work 1"
-              onTranscript={text => {
-                setWork1(prev => (prev ? `${prev} ${text}` : text));
+              value={work1}
+              onChange={val => {
+                setWork1(val);
                 if (errors.work1) {
                   setErrors(p => ({ ...p, work1: '' }));
                 }
@@ -380,7 +381,8 @@ export const WorkflowForm: React.FC<WorkflowFormProps> = ({
                   </label>
                   <VoiceInputButton
                     fieldName="Work 2"
-                    onTranscript={text => setWork2(prev => (prev ? `${prev} ${text}` : text))}
+                    value={work2}
+                    onChange={val => setWork2(val)}
                   />
                 </div>
                 <input
@@ -404,7 +406,8 @@ export const WorkflowForm: React.FC<WorkflowFormProps> = ({
                   </label>
                   <VoiceInputButton
                     fieldName="Work 3"
-                    onTranscript={text => setWork3(prev => (prev ? `${prev} ${text}` : text))}
+                    value={work3}
+                    onChange={val => setWork3(val)}
                   />
                 </div>
                 <input
@@ -428,7 +431,8 @@ export const WorkflowForm: React.FC<WorkflowFormProps> = ({
                   </label>
                   <VoiceInputButton
                     fieldName="Work 4"
-                    onTranscript={text => setWork4(prev => (prev ? `${prev} ${text}` : text))}
+                    value={work4}
+                    onChange={val => setWork4(val)}
                   />
                 </div>
                 <input

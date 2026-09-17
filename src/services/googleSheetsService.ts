@@ -6,6 +6,8 @@ export interface GoogleSpreadsheetInfo {
   url: string;
 }
 
+export const DEFAULT_WORKSHEET_NAME = 'Untitled Worksheet';
+
 const APP_SPREADSHEET_NAME = 'Dynamic Workflow - Automation';
 
 /**
@@ -50,7 +52,7 @@ export async function findExistingSpreadsheet(accessToken: string): Promise<Goog
  */
 export async function createPersonalSpreadsheet(
   accessToken: string,
-  initialSheets: string[] = ['Home Works']
+  initialSheets: string[] = [DEFAULT_WORKSHEET_NAME]
 ): Promise<GoogleSpreadsheetInfo> {
   const sheetsPayload = initialSheets.map(title => ({
     properties: { title },
@@ -134,6 +136,155 @@ export async function initSheetHeaders(
 }
 
 /**
+ * Creates a new sheet tab in the existing Google Spreadsheet and adds headers.
+ */
+export async function createWorksheetTab(
+  accessToken: string,
+  spreadsheetId: string,
+  title: string
+): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          requests: [
+            {
+              addSheet: {
+                properties: {
+                  title,
+                },
+              },
+            },
+          ],
+        }),
+      }
+    );
+
+    if (res.ok) {
+      await initSheetHeaders(accessToken, spreadsheetId, title);
+    }
+    return res.ok;
+  } catch (err) {
+    console.error('Error adding sheet tab to Google Sheets:', err);
+    return false;
+  }
+}
+
+/**
+ * Renames an existing worksheet tab inside the user's Google Spreadsheet.
+ */
+export async function renameWorksheetTab(
+  accessToken: string,
+  spreadsheetId: string,
+  oldTitle: string,
+  newTitle: string
+): Promise<boolean> {
+  try {
+    // 1. Fetch spreadsheet metadata to find the numeric sheetId for oldTitle
+    const metaRes = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+    if (!metaRes.ok) return false;
+    const metaData = await metaRes.json();
+    const sheetObj = metaData.sheets?.find(
+      (s: { properties?: { title?: string; sheetId?: number } }) => s.properties?.title === oldTitle
+    );
+    if (!sheetObj || sheetObj.properties?.sheetId === undefined) return false;
+
+    const sheetId = sheetObj.properties.sheetId;
+
+    // 2. batchUpdate to rename sheet title
+    const updateRes = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          requests: [
+            {
+              updateSheetProperties: {
+                properties: {
+                  sheetId,
+                  title: newTitle,
+                },
+                fields: 'title',
+              },
+            },
+          ],
+        }),
+      }
+    );
+
+    return updateRes.ok;
+  } catch (err) {
+    console.error('Error renaming worksheet in Google Sheets:', err);
+    return false;
+  }
+}
+
+/**
+ * Deletes a worksheet tab from the user's Google Spreadsheet.
+ */
+export async function deleteWorksheetTab(
+  accessToken: string,
+  spreadsheetId: string,
+  title: string
+): Promise<boolean> {
+  try {
+    const metaRes = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+    if (!metaRes.ok) return false;
+    const metaData = await metaRes.json();
+    const sheetObj = metaData.sheets?.find(
+      (s: { properties?: { title?: string; sheetId?: number } }) => s.properties?.title === title
+    );
+    if (!sheetObj || sheetObj.properties?.sheetId === undefined) return false;
+
+    const sheetId = sheetObj.properties.sheetId;
+
+    const delRes = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          requests: [
+            {
+              deleteSheet: {
+                sheetId,
+              },
+            },
+          ],
+        }),
+      }
+    );
+    return delRes.ok;
+  } catch (err) {
+    console.error('Error deleting sheet tab from Google Sheets:', err);
+    return false;
+  }
+}
+
+/**
  * Appends a workflow record row directly into the user's personal Google Sheet.
  */
 export async function appendWorkflowRowToSheet(
@@ -142,7 +293,7 @@ export async function appendWorkflowRowToSheet(
   item: WorkflowItem
 ): Promise<boolean> {
   try {
-    const sheetName = item.sheetName || 'Home Works';
+    const sheetName = item.sheetName || DEFAULT_WORKSHEET_NAME;
     const row = [
       item.id,
       item.date,

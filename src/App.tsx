@@ -3,16 +3,25 @@ import { WorkflowItem } from './types';
 import { Header } from './components/Header';
 import { WorkflowForm } from './components/WorkflowForm';
 import { SheetPreview } from './components/SheetPreview';
+import { WorksheetManager } from './components/WorksheetManager';
+import { WorkVisualOverview } from './components/WorkVisualOverview';
 import { AppsScriptModal } from './components/AppsScriptModal';
 import { SettingsModal } from './components/SettingsModal';
 import { StatsModal } from './components/StatsModal';
 import { EditEntryModal } from './components/EditEntryModal';
 import { LoginScreen } from './components/LoginScreen';
+import { MobileBottomNav, MobileTab } from './components/MobileBottomNav';
 import { INITIAL_WORKFLOW_ITEMS } from './data/initialData';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { appendWorkflowRowToSheet } from './services/googleSheetsService';
+import {
+  DEFAULT_WORKSHEET_NAME,
+  appendWorkflowRowToSheet,
+  createWorksheetTab,
+  renameWorksheetTab,
+  deleteWorksheetTab,
+} from './services/googleSheetsService';
 import {
   FileSpreadsheet,
   Code2,
@@ -45,7 +54,15 @@ function AppContent() {
   const [items, setItems] = useState<WorkflowItem[]>(() => {
     try {
       const saved = localStorage.getItem(userItemsKey);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.map((item: WorkflowItem) => ({
+            ...item,
+            sheetName: item.sheetName === 'Home Works' ? DEFAULT_WORKSHEET_NAME : (item.sheetName || DEFAULT_WORKSHEET_NAME),
+          }));
+        }
+      }
       if (user.id === 'user_sayham_admin') return INITIAL_WORKFLOW_ITEMS;
       return [];
     } catch (e) {
@@ -54,23 +71,27 @@ function AppContent() {
     }
   });
 
-  // Multiple worksheets list (defaults to ['Home Works'])
+  // Multiple worksheets list (defaults to ['Untitled Worksheet'])
   const [worksheets, setWorksheets] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem(userSheetsKey);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((s: string) => (s === 'Home Works' ? DEFAULT_WORKSHEET_NAME : s));
+        }
       }
     } catch (e) {
       console.error('Failed to parse saved worksheets', e);
     }
-    return ['Home Works'];
+    return [DEFAULT_WORKSHEET_NAME];
   });
 
   // Currently active worksheet
   const [activeSheet, setActiveSheet] = useState<string>(() => {
-    return localStorage.getItem(userActiveSheetKey) || 'Home Works';
+    const saved = localStorage.getItem(userActiveSheetKey);
+    if (saved === 'Home Works' || !saved) return DEFAULT_WORKSHEET_NAME;
+    return saved;
   });
 
   const [webAppUrl, setWebAppUrl] = useState<string>(() => {
@@ -86,6 +107,7 @@ function AppContent() {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<WorkflowItem | null>(null);
+  const [mobileTab, setMobileTab] = useState<MobileTab>('progress');
 
   // Switch partition dynamically if user changes
   useEffect(() => {
@@ -102,13 +124,15 @@ function AppContent() {
       const savedSheets = localStorage.getItem(userSheetsKey);
       if (savedSheets) {
         const parsed = JSON.parse(savedSheets);
-        if (Array.isArray(parsed) && parsed.length > 0) setWorksheets(parsed);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setWorksheets(parsed.map((s: string) => (s === 'Home Works' ? DEFAULT_WORKSHEET_NAME : s)));
+        }
       } else {
-        setWorksheets(['Home Works']);
+        setWorksheets([DEFAULT_WORKSHEET_NAME]);
       }
 
       const savedActive = localStorage.getItem(userActiveSheetKey);
-      setActiveSheet(savedActive || 'Home Works');
+      setActiveSheet(savedActive === 'Home Works' || !savedActive ? DEFAULT_WORKSHEET_NAME : savedActive);
     } catch (e) {
       console.error('Error switching user storage partition', e);
     }
@@ -147,16 +171,58 @@ function AppContent() {
     localStorage.setItem(URL_STORAGE_KEY, url);
   };
 
-  const handleAddWorksheet = (name: string) => {
+  const handleAddWorksheet = async (name: string) => {
     const trimmed = name.trim();
     if (!trimmed) return;
     if (!worksheets.includes(trimmed)) {
       setWorksheets(prev => [...prev, trimmed]);
+      setActiveSheet(trimmed);
+
+      // Sync new tab to user's Google Spreadsheet in Google Drive
+      if (user.provider === 'google' && accessToken && spreadsheetInfo?.id) {
+        try {
+          await createWorksheetTab(accessToken, spreadsheetInfo.id, trimmed);
+        } catch (err) {
+          console.warn('Could not create worksheet tab in Google Sheets', err);
+        }
+      }
+    } else {
+      setActiveSheet(trimmed);
     }
-    setActiveSheet(trimmed);
   };
 
-  const handleDeleteWorksheet = (sheetToDelete: string) => {
+  const handleRenameWorksheet = async (oldName: string, newName: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === oldName) return;
+
+    // 1. Update worksheets array
+    setWorksheets(prev => prev.map(s => (s === oldName ? trimmed : s)));
+
+    // 2. Update activeSheet if active
+    if (activeSheet === oldName) {
+      setActiveSheet(trimmed);
+    }
+
+    // 3. Update all items under oldName to newName
+    setItems(prev =>
+      prev.map(item =>
+        (item.sheetName || DEFAULT_WORKSHEET_NAME) === oldName
+          ? { ...item, sheetName: trimmed }
+          : item
+      )
+    );
+
+    // 4. Sync rename to Google Drive Spreadsheet via Google Sheets REST API
+    if (user.provider === 'google' && accessToken && spreadsheetInfo?.id) {
+      try {
+        await renameWorksheetTab(accessToken, spreadsheetInfo.id, oldName, trimmed);
+      } catch (err) {
+        console.error('Could not rename worksheet tab in Google Sheets', err);
+      }
+    }
+  };
+
+  const handleDeleteWorksheet = async (sheetToDelete: string) => {
     if (worksheets.length <= 1) {
       alert(t.preview.minSheetAlert);
       return;
@@ -169,7 +235,16 @@ function AppContent() {
       setActiveSheet(nextSheets[0]);
     }
 
-    setItems(prev => prev.filter(i => (i.sheetName || 'Home Works') !== sheetToDelete));
+    setItems(prev => prev.filter(i => (i.sheetName || DEFAULT_WORKSHEET_NAME) !== sheetToDelete));
+
+    // Sync deletion to Google Drive Spreadsheet if connected
+    if (user.provider === 'google' && accessToken && spreadsheetInfo?.id) {
+      try {
+        await deleteWorksheetTab(accessToken, spreadsheetInfo.id, sheetToDelete);
+      } catch (err) {
+        console.warn('Could not delete worksheet tab in Google Sheets', err);
+      }
+    }
   };
 
   const handleUpdateEntry = (updatedItem: WorkflowItem) => {
@@ -240,17 +315,17 @@ function AppContent() {
   const handleClearDemoData = () => {
     const msg = t.preview.clearDataConfirm.replace('{sheet}', activeSheet);
     if (window.confirm(msg)) {
-      setItems(prev => prev.filter(i => (i.sheetName || 'Home Works') !== activeSheet));
+      setItems(prev => prev.filter(i => (i.sheetName || DEFAULT_WORKSHEET_NAME) !== activeSheet));
     }
   };
 
   const handleResetDemoData = () => {
     setItems(INITIAL_WORKFLOW_ITEMS);
-    setWorksheets(['Home Works']);
-    setActiveSheet('Home Works');
+    setWorksheets([DEFAULT_WORKSHEET_NAME]);
+    setActiveSheet(DEFAULT_WORKSHEET_NAME);
     localStorage.setItem(userItemsKey, JSON.stringify(INITIAL_WORKFLOW_ITEMS));
-    localStorage.setItem(userSheetsKey, JSON.stringify(['Home Works']));
-    localStorage.setItem(userActiveSheetKey, 'Home Works');
+    localStorage.setItem(userSheetsKey, JSON.stringify([DEFAULT_WORKSHEET_NAME]));
+    localStorage.setItem(userActiveSheetKey, DEFAULT_WORKSHEET_NAME);
   };
 
   return (
@@ -265,10 +340,10 @@ function AppContent() {
         activeSheet={activeSheet}
       />
 
-      {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
-        {/* Hero Banner with Status & Quick Actions */}
-        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden border border-slate-800">
+      {/* Main Container with extra bottom padding on mobile for bottom nav */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 pb-20 md:pb-8">
+        {/* Hero Banner with Status & Quick Actions (Visible on md+ desktop, hidden on mobile in favor of visual graphs) */}
+        <div className="hidden md:block bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden border border-slate-800">
           {/* Subtle background glow */}
           <div
             className="absolute -right-16 -bottom-16 w-64 h-64 rounded-full blur-3xl pointer-events-none opacity-20"
@@ -280,7 +355,11 @@ function AppContent() {
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-slate-200 text-xs font-semibold backdrop-blur-xs border border-white/10">
                 <Sparkles className="w-3.5 h-3.5" style={{ color: accentConfig.hex }} />
                 <span>
-                  {user.name} • {user.provider === 'google' ? 'Google Cloud Workspace' : 'Demo Panel'}
+                  {user.provider === 'google'
+                    ? `${user.name} • ${t.hero.badge}`
+                    : user.name && !user.name.toLowerCase().includes('sayham') && !user.name.toLowerCase().includes('demo')
+                      ? `${user.name} • ${t.hero.badge}`
+                      : t.hero.badge}
                 </span>
               </div>
               <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
@@ -305,7 +384,7 @@ function AppContent() {
                 <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
               </button>
 
-              <button
+              {/* <button
                 type="button"
                 id="hero-apps-script-guide-btn"
                 onClick={() => setIsAppsScriptModalOpen(true)}
@@ -314,9 +393,9 @@ function AppContent() {
                 <Code2 className="w-4 h-4 text-indigo-600" />
                 <span>{t.hero.scriptBtn}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              </button> */}
 
-              <button
+              {/* <button
                 type="button"
                 id="hero-settings-btn"
                 onClick={() => setIsSettingsModalOpen(true)}
@@ -329,10 +408,10 @@ function AppContent() {
                       ? 'Web App URL পরিবর্তন'
                       : 'Change Web App URL'
                     : language === 'bn'
-                    ? 'Google Sheet সংযোগ করুন'
-                    : 'Connect Google Sheet'}
+                      ? 'Google Sheet সংযোগ করুন'
+                      : 'Connect Google Sheet'}
                 </span>
-              </button>
+              </button> */}
             </div>
           </div>
 
@@ -401,130 +480,143 @@ function AppContent() {
           </div>
         </div>
 
-        {/* Workspace Layout: Form (Left) + Sheet Preview (Right) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Left Column: Form */}
-          <div className="lg:col-span-5 space-y-6">
-            <WorkflowForm
-              onAddEntry={handleAddEntry}
-              webAppUrl={webAppUrl}
-              worksheets={worksheets}
-              activeSheet={activeSheet}
-              onSelectSheet={setActiveSheet}
-              onAddWorksheet={handleAddWorksheet}
-            />
+        {/* ============================================================ */}
+        {/* DESKTOP VIEW (Visible on md+ screens: complete full dashboard) */}
+        {/* ============================================================ */}
+        <div className="hidden md:block space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Left Column: Form */}
+            <div className="lg:col-span-5 space-y-6">
+              <WorkflowForm
+                onAddEntry={handleAddEntry}
+                webAppUrl={webAppUrl}
+                worksheets={worksheets}
+                activeSheet={activeSheet}
+                onSelectSheet={setActiveSheet}
+                onAddWorksheet={handleAddWorksheet}
+              />
+            </div>
 
-            {/* Feature Highlights Card */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs text-xs space-y-3">
-              <h4 className="font-bold text-slate-800 dark:text-white flex items-center gap-1.5 text-sm">
-                <ShieldCheck className={`w-4 h-4 ${accentConfig.textClass}`} />
-                <span>{t.form.tipsTitle}</span>
-              </h4>
-              <ul className="space-y-2 text-slate-600 dark:text-slate-400">
-                <li className="flex items-start gap-2">
-                  <span
-                    className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0"
-                    style={{ backgroundColor: accentConfig.hex }}
-                  />
-                  <span>
-                    <strong>{t.form.tip1Title}:</strong> {t.form.tip1Desc}
-                  </span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span
-                    className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0"
-                    style={{ backgroundColor: accentConfig.hex }}
-                  />
-                  <span>
-                    <strong>{t.form.tip2Title}:</strong> {t.form.tip2Desc}
-                  </span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span
-                    className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0"
-                    style={{ backgroundColor: accentConfig.hex }}
-                  />
-                  <span>
-                    <strong>{t.form.tip3Title}:</strong> {t.form.tip3Desc}
-                  </span>
-                </li>
-              </ul>
+            {/* Right Column: Worksheets Manager & Sheet Preview */}
+            <div className="lg:col-span-7 space-y-6">
+              <WorksheetManager
+                worksheets={worksheets}
+                activeSheet={activeSheet}
+                items={items}
+                onSelectSheet={setActiveSheet}
+                onAddWorksheet={handleAddWorksheet}
+                onRenameWorksheet={handleRenameWorksheet}
+                onDeleteWorksheet={handleDeleteWorksheet}
+              />
+
+              <SheetPreview
+                items={items}
+                onClearDemoData={handleClearDemoData}
+                worksheets={worksheets}
+                activeSheet={activeSheet}
+                onSelectSheet={setActiveSheet}
+                onAddWorksheet={handleAddWorksheet}
+                onDeleteWorksheet={handleDeleteWorksheet}
+                onEditEntry={item => setEditingItem(item)}
+                onDeleteEntry={handleDeleteEntry}
+              />
             </div>
           </div>
 
-          {/* Right Column: Interactive Sheet Preview */}
-          <div className="lg:col-span-7 space-y-6">
-            <SheetPreview
-              items={items}
-              onClearDemoData={handleClearDemoData}
-              worksheets={worksheets}
-              activeSheet={activeSheet}
-              onSelectSheet={setActiveSheet}
-              onAddWorksheet={handleAddWorksheet}
-              onDeleteWorksheet={handleDeleteWorksheet}
-              onEditEntry={item => setEditingItem(item)}
-              onDeleteEntry={handleDeleteEntry}
-            />
+          {/* Visual Analytics & Charts Section placed below Form, Worksheets, and Preview */}
+          <WorkVisualOverview
+            items={items}
+            worksheets={worksheets}
+            activeSheet={activeSheet}
+            onSelectSheet={setActiveSheet}
+            onOpenStatsModal={() => setIsStatsModalOpen(true)}
+          />
+        </div>
 
-            {/* How Google Apps Script Handles Multi-Worksheet Infographic */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs">
-              <h4 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2 mb-3">
-                <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                <span>{t.preview.infographicTitle}</span>
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/80 dark:border-slate-700/60 space-y-1">
-                  <div className={`font-bold ${accentConfig.textClass} flex items-center gap-1.5`}>
-                    <span
-                      className={`w-5 h-5 rounded-full ${accentConfig.bgLight} ${accentConfig.textClass} flex items-center justify-center text-[10px]`}
-                    >
-                      1
-                    </span>
-                    {t.preview.infographicStep1Title}
-                  </div>
-                  <p className="text-slate-600 dark:text-slate-400 text-[11px]">
-                    {t.preview.infographicStep1Desc}
-                  </p>
-                </div>
-
-                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/80 dark:border-slate-700/60 space-y-1">
-                  <div className={`font-bold ${accentConfig.textClass} flex items-center gap-1.5`}>
-                    <span
-                      className={`w-5 h-5 rounded-full ${accentConfig.bgLight} ${accentConfig.textClass} flex items-center justify-center text-[10px]`}
-                    >
-                      2
-                    </span>
-                    {t.preview.infographicStep2Title}
-                  </div>
-                  <p className="text-slate-600 dark:text-slate-400 text-[11px]">
-                    {t.preview.infographicStep2Desc}
-                  </p>
-                </div>
-
-                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/80 dark:border-slate-700/60 space-y-1">
-                  <div className={`font-bold ${accentConfig.textClass} flex items-center gap-1.5`}>
-                    <span
-                      className={`w-5 h-5 rounded-full ${accentConfig.bgLight} ${accentConfig.textClass} flex items-center justify-center text-[10px]`}
-                    >
-                      3
-                    </span>
-                    {t.preview.infographicStep3Title}
-                  </div>
-                  <p className="text-slate-600 dark:text-slate-400 text-[11px]">
-                    {t.preview.infographicStep3Desc}
-                  </p>
-                </div>
-              </div>
+        {/* ============================================================ */}
+        {/* MOBILE VIEW (Visible on < md screens: single tab panel view) */}
+        {/* ============================================================ */}
+        <div className="block md:hidden">
+          {mobileTab === 'progress' && (
+            <div className="animate-in fade-in duration-200">
+              <WorkVisualOverview
+                items={items}
+                worksheets={worksheets}
+                activeSheet={activeSheet}
+                onSelectSheet={setActiveSheet}
+                onOpenStatsModal={() => setIsStatsModalOpen(true)}
+              />
             </div>
-          </div>
+          )}
+
+          {mobileTab === 'form' && (
+            <div className="animate-in fade-in duration-200">
+              <WorkflowForm
+                onAddEntry={handleAddEntry}
+                webAppUrl={webAppUrl}
+                worksheets={worksheets}
+                activeSheet={activeSheet}
+                onSelectSheet={setActiveSheet}
+                onAddWorksheet={handleAddWorksheet}
+              />
+            </div>
+          )}
+
+          {mobileTab === 'worksheets' && (
+            <div className="animate-in fade-in duration-200">
+              <WorksheetManager
+                worksheets={worksheets}
+                activeSheet={activeSheet}
+                items={items}
+                onSelectSheet={setActiveSheet}
+                onAddWorksheet={handleAddWorksheet}
+                onRenameWorksheet={handleRenameWorksheet}
+                onDeleteWorksheet={handleDeleteWorksheet}
+              />
+            </div>
+          )}
+
+          {mobileTab === 'preview' && (
+            <div className="animate-in fade-in duration-200">
+              <SheetPreview
+                items={items}
+                onClearDemoData={handleClearDemoData}
+                worksheets={worksheets}
+                activeSheet={activeSheet}
+                onSelectSheet={setActiveSheet}
+                onAddWorksheet={handleAddWorksheet}
+                onDeleteWorksheet={handleDeleteWorksheet}
+                onEditEntry={item => setEditingItem(item)}
+                onDeleteEntry={handleDeleteEntry}
+              />
+            </div>
+          )}
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 py-6 text-center text-xs text-slate-500 dark:text-slate-400 mt-12 transition-colors">
+      {/* Mobile Bottom Navigation Bar */}
+      <MobileBottomNav
+        activeTab={mobileTab}
+        onTabChange={setMobileTab}
+        worksheetsCount={worksheets.length}
+        recordsCount={items.length}
+      />
+
+      {/* Footer with bottom margin on mobile to clear bottom nav */}
+      <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 py-6 text-center text-xs text-slate-500 dark:text-slate-400 mt-12 mb-16 md:mb-0 transition-colors">
         <div className="max-w-7xl mx-auto px-4 space-y-1">
           <p className="font-medium text-slate-700 dark:text-slate-300">{t.footer.appName}</p>
-          <p className="text-[11px] text-slate-400 dark:text-slate-500">{t.footer.techStack}</p>
+          <p className="text-[11px] text-slate-400 dark:text-slate-500">
+            © {new Date().getFullYear()}{t.footer.techStack}&nbsp;
+            <a
+              href="https://sayhamkayes.vercel.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`font-semibold hover:underline transition-colors ${accentConfig.textClass}`}
+            >
+              Sayham Kayes
+            </a>
+          </p>
         </div>
       </footer>
 

@@ -3,6 +3,7 @@ import {
   GoogleSpreadsheetInfo,
   findExistingSpreadsheet,
   createPersonalSpreadsheet,
+  DEFAULT_WORKSHEET_NAME,
 } from '../services/googleSheetsService';
 
 export interface UserProfile {
@@ -160,7 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       let sheet = await findExistingSpreadsheet(token);
       if (!sheet) {
         // Create new one
-        sheet = await createPersonalSpreadsheet(token, ['Home Works']);
+        sheet = await createPersonalSpreadsheet(token, [DEFAULT_WORKSHEET_NAME]);
       }
       setSpreadsheetInfo(sheet);
       localStorage.setItem(SHEET_STORAGE_KEY, JSON.stringify(sheet));
@@ -198,8 +199,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginAsDemo = (customUser?: Partial<UserProfile>) => {
     const demoUser: UserProfile = {
       id: customUser?.id || `user_${Date.now()}`,
-      name: customUser?.name || 'Sayham Kayes (Demo)',
-      email: customUser?.email || 'sayham@workflow.demo',
+      name: customUser?.name || 'Demo User',
+      email: customUser?.email || 'demo@workflow.app',
       picture:
         customUser?.picture ||
         'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',

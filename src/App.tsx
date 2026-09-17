@@ -7,9 +7,12 @@ import { AppsScriptModal } from './components/AppsScriptModal';
 import { SettingsModal } from './components/SettingsModal';
 import { StatsModal } from './components/StatsModal';
 import { EditEntryModal } from './components/EditEntryModal';
+import { LoginScreen } from './components/LoginScreen';
 import { INITIAL_WORKFLOW_ITEMS } from './data/initialData';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { appendWorkflowRowToSheet } from './services/googleSheetsService';
 import {
   FileSpreadsheet,
   Code2,
@@ -18,33 +21,43 @@ import {
   Database,
   ShieldCheck,
   TrendingUp,
+  ExternalLink,
 } from 'lucide-react';
 
 const ITEMS_STORAGE_KEY = 'workflow_items_history';
 const URL_STORAGE_KEY = 'workflow_apps_script_url';
-const SHEETS_STORAGE_KEY = 'workflow_worksheets_list';
-const ACTIVE_SHEET_KEY = 'workflow_active_sheet';
 
 function AppContent() {
   const { accentConfig } = useTheme();
   const { language, t } = useLanguage();
+  const { user, accessToken, spreadsheetInfo } = useAuth();
+
+  // If user is not authenticated, show modern Login Screen
+  if (!user) {
+    return <LoginScreen />;
+  }
+
+  // Partition storage keys per user
+  const userItemsKey = `workflow_items_${user.id}`;
+  const userSheetsKey = `workflow_sheets_${user.id}`;
+  const userActiveSheetKey = `workflow_active_sheet_${user.id}`;
 
   const [items, setItems] = useState<WorkflowItem[]>(() => {
     try {
-      const saved = localStorage.getItem(ITEMS_STORAGE_KEY);
-      if (saved) {
-        return JSON.parse(saved);
-      }
+      const saved = localStorage.getItem(userItemsKey);
+      if (saved) return JSON.parse(saved);
+      if (user.id === 'user_sayham_admin') return INITIAL_WORKFLOW_ITEMS;
+      return [];
     } catch (e) {
       console.error('Failed to parse saved workflow items', e);
+      return [];
     }
-    return INITIAL_WORKFLOW_ITEMS;
   });
 
   // Multiple worksheets list (defaults to ['Home Works'])
   const [worksheets, setWorksheets] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem(SHEETS_STORAGE_KEY);
+      const saved = localStorage.getItem(userSheetsKey);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -57,7 +70,7 @@ function AppContent() {
 
   // Currently active worksheet
   const [activeSheet, setActiveSheet] = useState<string>(() => {
-    return localStorage.getItem(ACTIVE_SHEET_KEY) || 'Home Works';
+    return localStorage.getItem(userActiveSheetKey) || 'Home Works';
   });
 
   const [webAppUrl, setWebAppUrl] = useState<string>(() => {
@@ -74,32 +87,59 @@ function AppContent() {
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<WorkflowItem | null>(null);
 
-  // Sync worksheets to localStorage
+  // Switch partition dynamically if user changes
   useEffect(() => {
     try {
-      localStorage.setItem(SHEETS_STORAGE_KEY, JSON.stringify(worksheets));
+      const savedItems = localStorage.getItem(userItemsKey);
+      if (savedItems) {
+        setItems(JSON.parse(savedItems));
+      } else if (user.id === 'user_sayham_admin') {
+        setItems(INITIAL_WORKFLOW_ITEMS);
+      } else {
+        setItems([]);
+      }
+
+      const savedSheets = localStorage.getItem(userSheetsKey);
+      if (savedSheets) {
+        const parsed = JSON.parse(savedSheets);
+        if (Array.isArray(parsed) && parsed.length > 0) setWorksheets(parsed);
+      } else {
+        setWorksheets(['Home Works']);
+      }
+
+      const savedActive = localStorage.getItem(userActiveSheetKey);
+      setActiveSheet(savedActive || 'Home Works');
+    } catch (e) {
+      console.error('Error switching user storage partition', e);
+    }
+  }, [user.id, userItemsKey, userSheetsKey, userActiveSheetKey]);
+
+  // Sync worksheets to user's localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(userSheetsKey, JSON.stringify(worksheets));
     } catch (e) {
       console.error('Failed to save worksheets list', e);
     }
-  }, [worksheets]);
+  }, [worksheets, userSheetsKey]);
 
-  // Sync activeSheet to localStorage
+  // Sync activeSheet to user's localStorage
   useEffect(() => {
     try {
-      localStorage.setItem(ACTIVE_SHEET_KEY, activeSheet);
+      localStorage.setItem(userActiveSheetKey, activeSheet);
     } catch (e) {
       console.error('Failed to save active sheet', e);
     }
-  }, [activeSheet]);
+  }, [activeSheet, userActiveSheetKey]);
 
-  // Sync items to localStorage
+  // Sync items to user's localStorage
   useEffect(() => {
     try {
-      localStorage.setItem(ITEMS_STORAGE_KEY, JSON.stringify(items));
+      localStorage.setItem(userItemsKey, JSON.stringify(items));
     } catch (e) {
       console.error('Failed to save workflow items to localStorage', e);
     }
-  }, [items]);
+  }, [items, userItemsKey]);
 
   // Sync webAppUrl to localStorage
   const handleSaveWebAppUrl = (url: string) => {
@@ -168,7 +208,16 @@ function AppContent() {
 
   // Handle Adding New Workflow Item
   const handleAddEntry = async (entry: WorkflowItem) => {
-    // 1. If Web App URL is connected, post to Google Apps Script
+    // 1. If Google Account is connected with personal spreadsheet, write directly to Google Sheets!
+    if (user.provider === 'google' && accessToken && spreadsheetInfo?.id) {
+      try {
+        await appendWorkflowRowToSheet(accessToken, spreadsheetInfo.id, entry);
+      } catch (err) {
+        console.warn('Could not post directly to user Google Sheet', err);
+      }
+    }
+
+    // 2. If Web App URL is connected, post to Google Apps Script as well
     if (webAppUrl && webAppUrl.startsWith('http')) {
       try {
         await fetch(webAppUrl, {
@@ -184,7 +233,7 @@ function AppContent() {
       }
     }
 
-    // 2. Add to local state
+    // 3. Add to local state (isolated for this user)
     setItems(prev => [entry, ...prev]);
   };
 
@@ -199,9 +248,9 @@ function AppContent() {
     setItems(INITIAL_WORKFLOW_ITEMS);
     setWorksheets(['Home Works']);
     setActiveSheet('Home Works');
-    localStorage.setItem(ITEMS_STORAGE_KEY, JSON.stringify(INITIAL_WORKFLOW_ITEMS));
-    localStorage.setItem(SHEETS_STORAGE_KEY, JSON.stringify(['Home Works']));
-    localStorage.setItem(ACTIVE_SHEET_KEY, 'Home Works');
+    localStorage.setItem(userItemsKey, JSON.stringify(INITIAL_WORKFLOW_ITEMS));
+    localStorage.setItem(userSheetsKey, JSON.stringify(['Home Works']));
+    localStorage.setItem(userActiveSheetKey, 'Home Works');
   };
 
   return (
@@ -230,7 +279,9 @@ function AppContent() {
             <div className="max-w-2xl space-y-2.5">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-slate-200 text-xs font-semibold backdrop-blur-xs border border-white/10">
                 <Sparkles className="w-3.5 h-3.5" style={{ color: accentConfig.hex }} />
-                <span>{t.hero.badge}</span>
+                <span>
+                  {user.name} • {user.provider === 'google' ? 'Google Cloud Workspace' : 'Demo Panel'}
+                </span>
               </div>
               <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
                 {t.hero.title}
@@ -285,8 +336,16 @@ function AppContent() {
             </div>
           </div>
 
-          {/* Quick Metrics Bar */}
-          <div className="mt-6 pt-5 border-t border-white/10 grid grid-cols-2 sm:grid-cols-5 gap-4 text-xs">
+          {/* Quick Metrics Bar with User & Sheet indicators */}
+          <div className="mt-6 pt-5 border-t border-white/10 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 text-xs">
+            <div>
+              <span className="text-slate-400 block text-[11px]">
+                {language === 'bn' ? 'ব্যবহারকারী' : 'Active Account'}
+              </span>
+              <strong className="text-base font-bold text-white truncate block">
+                {user.name.split(' ')[0]}
+              </strong>
+            </div>
             <div>
               <span className="text-slate-400 block text-[11px]">
                 {language === 'bn' ? 'মোট রেকর্ড' : 'Total Entries'}
@@ -324,14 +383,19 @@ function AppContent() {
               <span className="text-slate-400 block text-[11px]">
                 {language === 'bn' ? 'গুগল শিট স্ট্যাটাস' : 'Sheets Status'}
               </span>
-              <strong className="text-base font-bold text-white">
-                {webAppUrl
-                  ? language === 'bn'
-                    ? 'সংযুক্ত (Live)'
-                    : 'Connected (Live)'
-                  : language === 'bn'
-                  ? 'সিমুলেশন মোড'
-                  : 'Local Simulator'}
+              <strong className="text-base font-bold text-white flex items-center gap-1.5">
+                {user.provider === 'google' && spreadsheetInfo ? (
+                  <span className="text-emerald-400 flex items-center gap-1 truncate" title={spreadsheetInfo.name}>
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
+                    <span className="truncate">Live Sheets</span>
+                  </span>
+                ) : webAppUrl ? (
+                  <span className="text-emerald-400">Apps Script Live</span>
+                ) : (
+                  <span className="text-amber-300">
+                    {language === 'bn' ? 'সিমুলেটর' : 'Simulator'}
+                  </span>
+                )}
               </strong>
             </div>
           </div>
@@ -504,7 +568,9 @@ export default function App() {
   return (
     <ThemeProvider>
       <LanguageProvider>
-        <AppContent />
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
       </LanguageProvider>
     </ThemeProvider>
   );

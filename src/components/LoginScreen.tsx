@@ -101,7 +101,7 @@ export const LoginScreen: React.FC = () => {
           </div>
           <div>
             <span className="font-extrabold text-sm tracking-tight text-slate-900 dark:text-white block leading-tight">
-              Dynamic Workflow
+              Workflow Automation
             </span>
             <span
               className="text-[11px] font-bold transition-colors duration-300"
@@ -166,11 +166,10 @@ export const LoginScreen: React.FC = () => {
                           setIsPaletteOpen(false);
                         }}
                         style={{ backgroundColor: option.hex }}
-                        className={`w-7 h-7 rounded-full transition-all flex items-center justify-center cursor-pointer relative hover:scale-120 ${
-                          isSelected
-                            ? 'ring-3 ring-offset-2 ring-slate-900 dark:ring-white dark:ring-offset-slate-800 scale-110'
-                            : 'opacity-85 hover:opacity-100'
-                        }`}
+                        className={`w-7 h-7 rounded-full transition-all flex items-center justify-center cursor-pointer relative hover:scale-120 ${isSelected
+                          ? 'ring-3 ring-offset-2 ring-slate-900 dark:ring-white dark:ring-offset-slate-800 scale-110'
+                          : 'opacity-85 hover:opacity-100'
+                          }`}
                         title={language === 'bn' ? option.labelBn : option.labelEn}
                       >
                         {isSelected && <Check className="w-4 h-4 text-white stroke-[3]" />}
@@ -307,20 +306,19 @@ export const LoginScreen: React.FC = () => {
             </button>
 
             {/* Cloud Client ID Status Info */}
-            <div className="flex items-center justify-between text-[11px] px-1 text-slate-500 dark:text-slate-400">
+            {/* <div className="flex items-center justify-between text-[11px] px-1 text-slate-500 dark:text-slate-400">
               <span className="flex items-center gap-1.5">
                 <span
-                  className={`w-2 h-2 rounded-full ${
-                    isGoogleConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
-                  }`}
+                  className={`w-2 h-2 rounded-full ${isGoogleConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+                    }`}
                 />
                 {isGoogleConfigured
                   ? language === 'bn'
                     ? 'গুগল ক্লাউড ক্লায়েন্ট রেডি'
                     : 'Google Client ID Connected'
                   : language === 'bn'
-                  ? 'গুগল ক্লায়েন্ট আইডি কনফিগার করা হয়নি'
-                  : 'Client ID Not Yet in .env'}
+                    ? 'গুগল ক্লায়েন্ট আইডি কনফিগার করা হয়নি'
+                    : 'Client ID Not Yet in .env'}
               </span>
 
               <button
@@ -332,7 +330,7 @@ export const LoginScreen: React.FC = () => {
                 <HelpCircle className="w-3.5 h-3.5" />
                 <span>{language === 'bn' ? 'কীভাবে তৈরি করবেন?' : 'How to set up?'}</span>
               </button>
-            </div>
+            </div> */}
           </div>
 
           {/* Divider */}
@@ -461,7 +459,7 @@ export const LoginScreen: React.FC = () => {
 
       {/* 4. Footer */}
       <footer className="relative z-10 py-4 text-center text-xs text-slate-500 dark:text-slate-500">
-        Dynamic Workflow Automation • Open Source MIT License
+        Workflow Automation | Open Source MIT License
       </footer>
 
       {/* 5. Google Cloud Client ID Setup Guide Modal */}

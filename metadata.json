@@ -1,0 +1,6 @@
+{
+  "name": "Dynamic Workflow App",
+  "description": "Automated workflow management system connected to Google Sheets with dynamic monthly headers, voice-to-text inputs, and persistent signature auto-fill.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

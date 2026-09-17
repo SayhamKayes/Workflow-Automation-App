@@ -8,7 +8,7 @@ export type TimeFilterRange =
 
 export interface WorkflowItem {
   id: string;
-  sheetName?: string; // Target worksheet name (default: "Home Works")
+  sheetName?: string; // Target worksheet name (default: "Untitled Worksheet")
   date: string; // YYYY-MM-DD
   work1: string; // Mandatory
   work2?: string;

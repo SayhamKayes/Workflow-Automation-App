@@ -93,6 +93,27 @@ export interface Translations {
     deleteSheetConfirm: string;
     minSheetAlert: string;
     exportCsv: string;
+    exportXlsx: string;
+    shareSheet: string;
+    shareModalTitle: string;
+    shareModalSubtitle: string;
+    publicLink: string;
+    privateAccess: string;
+    copyLink: string;
+    linkCopied: string;
+    openInSheets: string;
+    grantAccess: string;
+    emailPlaceholder: string;
+    roleViewer: string;
+    roleEditor: string;
+    sharingStatusPublic: string;
+    sharingStatusPrivate: string;
+    makePublicBtn: string;
+    makingPublic: string;
+    grantingAccess: string;
+    accessGrantedSuccess: string;
+    enterValidEmail: string;
+    shareNativeDrive: string;
     clearData: string;
     clearDataConfirm: string;
     thDate: string;
@@ -176,12 +197,53 @@ export interface Translations {
     appName: string;
     techStack: string;
   };
+  worksheetsManager: {
+    title: string;
+    subtitle: string;
+    addSheetPlaceholder: string;
+    addSheetBtn: string;
+    renameBtn: string;
+    saveBtn: string;
+    cancelBtn: string;
+    activeBadge: string;
+    switchSheetTooltip: string;
+    recordsCount: string;
+    deleteTooltip: string;
+    deleteConfirm: string;
+    nameExistsAlert: string;
+    emptyNameAlert: string;
+    minSheetAlert: string;
+  };
+  visualOverview: {
+    sectionTitle: string;
+    todayProgressTitle: string;
+    todayProgressSub: string;
+    dailyTarget: string;
+    worksheetsDistTitle: string;
+    worksheetsDistSub: string;
+    hoursRatioTitle: string;
+    completedHours: string;
+    dueHours: string;
+    completionRate: string;
+    totalActivityTitle: string;
+    totalEntries: string;
+    activeWorksheets: string;
+    onTrack: string;
+    goalReached: string;
+    noWorkYet: string;
+  };
+  mobileNav: {
+    progress: string;
+    form: string;
+    worksheets: string;
+    preview: string;
+  };
 }
 
 const TRANSLATIONS: Record<Language, Translations> = {
   en: {
     common: {
-      appName: 'Dynamic Workflow App',
+      appName: 'Workflow Automation',
       appSubtitle: 'Automated Month Header • Voice Input • Multiple Worksheets',
       sheetsDbBadge: 'Sheets DB',
       save: 'Save',
@@ -215,10 +277,10 @@ const TRANSLATIONS: Record<Language, Translations> = {
       languageSelect: 'Select Language',
     },
     hero: {
-      badge: 'Multi-Sheet Google Sheets Database System',
-      title: 'Dynamic Workflow & Multiple Worksheet Automation',
+      badge: 'Workflow Panel',
+      title: 'Workflow Automation',
       subtitle:
-        'Manage multiple sheets including default "Home Works" or custom tabs. Seamless automated monthly banners, column headers, and live database sync with Google Sheets.',
+        'Manage multiple sheets including default "Untitled Worksheet" or custom tabs. Seamless automated monthly banners, column headers, and live database sync with Google Sheets.',
       statsBtn: 'Analytics Dashboard',
       scriptBtn: 'Apps Script Code',
     },
@@ -255,7 +317,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
       fillRequiredAlert: 'Please fill in Work 1 before submitting.',
       tipsTitle: 'Workflow Tips & Features',
       tip1Title: 'Multiple Worksheets',
-      tip1Desc: 'Switch between "Home Works" or custom sheets dynamically without manual setup.',
+      tip1Desc: 'Switch between "Untitled Worksheet" or custom sheets dynamically without manual setup.',
       tip2Title: 'Voice Dictation',
       tip2Desc: 'Click the microphone icon beside any work field to dictate directly in natural language.',
       tip3Title: 'Persistent Signature',
@@ -271,6 +333,27 @@ const TRANSLATIONS: Record<Language, Translations> = {
       deleteSheetConfirm: 'Are you sure you want to delete worksheet "{sheet}" and all its local entries?',
       minSheetAlert: 'At least one worksheet must remain.',
       exportCsv: 'Export CSV',
+      exportXlsx: 'Export XLSX',
+      shareSheet: 'Share Sheet',
+      shareModalTitle: 'Share Google Spreadsheet',
+      shareModalSubtitle: 'Manage public access links or invite collaborators with private access',
+      publicLink: 'Public Link',
+      privateAccess: 'Private Access',
+      copyLink: 'Copy Link',
+      linkCopied: 'Link copied to clipboard!',
+      openInSheets: 'Open in Google Sheets',
+      grantAccess: 'Grant Access',
+      emailPlaceholder: 'Enter collaborator email...',
+      roleViewer: 'Viewer (Read-only)',
+      roleEditor: 'Editor (Can Edit)',
+      sharingStatusPublic: 'Anyone with the link can view this spreadsheet',
+      sharingStatusPrivate: 'Restricted to invited collaborators only',
+      makePublicBtn: 'Make Publicly Accessible',
+      makingPublic: 'Updating permissions...',
+      grantingAccess: 'Inviting...',
+      accessGrantedSuccess: 'Access granted successfully!',
+      enterValidEmail: 'Please enter a valid email address.',
+      shareNativeDrive: 'Open Google Drive Sharing',
       clearData: 'Clear Sheet Data',
       clearDataConfirm: 'Are you sure you want to clear all entries in worksheet "{sheet}"?',
       thDate: 'Date',
@@ -351,13 +434,54 @@ const TRANSLATIONS: Record<Language, Translations> = {
       step3Desc: 'Click Deploy > New deployment. Select "Web app", execute as "Me", set access to "Anyone", and copy the Web App URL.',
     },
     footer: {
-      appName: 'Dynamic Workflow Automation App',
-      techStack: 'React 19 • Multiple Worksheets • Bilingual (English & বাংলা) • Dark/Light Mode • Google Sheets DB',
+      appName: 'Workflow Automation',
+      techStack: ' | All rights reserved | Designed & developed by',
+    },
+    worksheetsManager: {
+      title: 'Your Worksheets',
+      subtitle: 'Manage, switch, and rename your workbook tabs in real time',
+      addSheetPlaceholder: 'New worksheet name...',
+      addSheetBtn: 'Add Sheet',
+      renameBtn: 'Rename',
+      saveBtn: 'Save',
+      cancelBtn: 'Cancel',
+      activeBadge: 'Active',
+      switchSheetTooltip: 'Click to make active worksheet',
+      recordsCount: 'records',
+      deleteTooltip: 'Delete worksheet',
+      deleteConfirm: 'Are you sure you want to delete worksheet "{sheet}" and all its records?',
+      nameExistsAlert: 'A worksheet with this name already exists!',
+      emptyNameAlert: 'Worksheet name cannot be empty!',
+      minSheetAlert: 'You must maintain at least one worksheet!',
+    },
+    visualOverview: {
+      sectionTitle: 'Workflow Analytics & Visual Progress',
+      todayProgressTitle: "Today's Work Target",
+      todayProgressSub: 'Daily 8h productivity gauge',
+      dailyTarget: 'of 8h target',
+      worksheetsDistTitle: 'Worksheets Distribution',
+      worksheetsDistSub: 'Entries breakdown across sheets',
+      hoursRatioTitle: 'Logged vs Due Hours',
+      completedHours: 'Logged Work',
+      dueHours: 'Pending Due',
+      completionRate: 'Completion Rate',
+      totalActivityTitle: 'Total Activity & Records',
+      totalEntries: 'Total Records',
+      activeWorksheets: 'Active Worksheets',
+      onTrack: 'In Progress',
+      goalReached: 'Goal Reached',
+      noWorkYet: 'No entries today',
+    },
+    mobileNav: {
+      progress: 'Progress',
+      form: 'Form',
+      worksheets: 'Worksheets',
+      preview: 'Preview',
     },
   },
   bn: {
     common: {
-      appName: 'ডায়নামিক ওয়ার্কফ্লো অ্যাপ',
+      appName: 'ওয়ার্কফ্লো অটোমেশন',
       appSubtitle: 'অটোমেটেড মান্থ হেডার • ভয়েস ইনপুট • মাল্টিপল শিট',
       sheetsDbBadge: 'Sheets DB',
       save: 'সংরক্ষণ',
@@ -391,10 +515,10 @@ const TRANSLATIONS: Record<Language, Translations> = {
       languageSelect: 'ভাষা নির্বাচন করুন',
     },
     hero: {
-      badge: 'মাল্টিপল গুগল শিট ডেটাবেস সিস্টেম',
-      title: 'ডায়নামিক ওয়ার্কফ্লো ও মাল্টিপল ওয়ার্কশিট অটোমেশন',
+      badge: 'ওয়ার্কফ্লো প্যানেল',
+      title: 'ওয়ার্কফ্লো অটোমেশন',
       subtitle:
-        'ডিফল্ট "Home Works" ছাড়াও যতখুশি নতুন ওয়ার্কশিট খুলুন। নতুন মাস এলে স্বয়ংক্রিয়ভাবে সংশ্লিষ্ট শিটে নীল হেডার ও কলাম তৈরি হয়ে ডেটা সংরক্ষিত হবে।',
+        'ডিফল্ট "Untitled Worksheet" ছাড়াও যতখুশি নতুন ওয়ার্কশিট খুলুন। নতুন মাস এলে স্বয়ংক্রিয়ভাবে সংশ্লিষ্ট শিটে নীল হেডার ও কলাম তৈরি হয়ে ডেটা সংরক্ষিত হবে।',
       statsBtn: 'স্ট্যাটিস্টিক্স ড্যাশবোর্ড',
       scriptBtn: 'Apps Script কোড',
     },
@@ -431,7 +555,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
       fillRequiredAlert: 'দয়া করে Work 1 পূরণ করুন।',
       tipsTitle: 'ওয়ার্কফ্লো টিপস ও সুবিধাসমূহ',
       tip1Title: 'মাল্টিপল ওয়ার্কশিট',
-      tip1Desc: '"Home Works" ছাড়াও অফিস বা অন্যান্য কাজের জন্য যতখুশি নতুন শিট ট্যাব খুলতে পারেন।',
+      tip1Desc: '"Untitled Worksheet" ছাড়াও অফিস বা অন্যান্য কাজের জন্য যতখুশি নতুন শিট ট্যাব খুলতে পারেন।',
       tip2Title: 'ভয়েস টাইপিং',
       tip2Desc: 'Work ফিল্ডের মাইক আইকনে ক্লিক করে সরাসরি বাংলায় কথা বলুন, তাৎক্ষণিক লেখা হয়ে যাবে।',
       tip3Title: 'স্বাক্ষর স্বয়ংক্রিয় সেভ',
@@ -446,8 +570,29 @@ const TRANSLATIONS: Record<Language, Translations> = {
       deleteSheetBtn: 'শিট মুছুন',
       deleteSheetConfirm: 'আপনি কি নিশ্চিত যে "{sheet}" শিট এবং এর সমস্ত এন্ট্রি মুছে ফেলতে চান?',
       minSheetAlert: 'কমপক্ষে একটি ওয়ার্কশিট থাকা আবশ্যক।',
-      exportCsv: 'CSV ডাউনলোড',
-      clearData: 'শিট খালি করুন',
+      exportCsv: 'Export CSV',
+      exportXlsx: 'Export XLSX',
+      shareSheet: 'Share Sheet',
+      shareModalTitle: 'গুগল স্প্রেডশিট শেয়ারিং',
+      shareModalSubtitle: 'পাবলিক লিংক তৈরি করুন অথবা নির্দিষ্ট ইমেইলে প্রাইভেট এক্সেস দিন',
+      publicLink: 'পাবলিক লিংক',
+      privateAccess: 'প্রাইভেট এক্সেস',
+      copyLink: 'লিংক কপি করুন',
+      linkCopied: 'লিংক ক্লিপবোর্ডে কপি হয়েছে!',
+      openInSheets: 'গুগল শিটসে ওপেন করুন',
+      grantAccess: 'এক্সেস দিন',
+      emailPlaceholder: 'সহকর্মীর ইমেইল লিখুন...',
+      roleViewer: 'ভিউয়ার (শুধু দেখতে পারবে)',
+      roleEditor: 'এডিটর (এডিট করতে পারবে)',
+      sharingStatusPublic: 'লিংক থাকা যে কেউ এই শিটটি দেখতে পারবে',
+      sharingStatusPrivate: 'শুধুমাত্র ইনভাইট করা ব্যক্তিরা দেখতে পাবেন',
+      makePublicBtn: 'পাবলিক এক্সেস সক্রিয় করুন',
+      makingPublic: 'অনুমতি আপডেট হচ্ছে...',
+      grantingAccess: 'এক্সেস দেওয়া হচ্ছে...',
+      accessGrantedSuccess: 'এক্সেস সফলভাবে দেওয়া হয়েছে!',
+      enterValidEmail: 'অনুগ্রহ করে সঠিক ইমেইল অ্যাড্রেস দিন।',
+      shareNativeDrive: 'গুগল ড্রাইভ শেয়ার ডায়ালগ খুলুন',
+      clearData: 'Clear Sheet Data',
       clearDataConfirm: 'আপনি কি "{sheet}" শিটের সব এন্ট্রি মুছে ফেলতে চান?',
       thDate: 'তারিখ',
       thWork1: 'Work 1',
@@ -527,8 +672,49 @@ const TRANSLATIONS: Record<Language, Translations> = {
       step3Desc: 'Deploy > New deployment থেকে Web app হিসেবে ডিপ্লয় করুন (Execute as: Me, Access: Anyone)।',
     },
     footer: {
-      appName: 'ডায়নামিক ওয়ার্কফ্লো অটোমেশন অ্যাপ',
-      techStack: 'React 19 • Multiple Worksheets • দ্বিভাষিক (English ও বাংলা) • Dark/Light Mode • Google Sheets DB',
+      appName: 'ওয়ার্কফ্লো অটোমেশন',
+      techStack: ' | সর্বস্বত্ব সংরক্ষিত | ডিজাইন ও ডেভেলপ করেছেন',
+    },
+    worksheetsManager: {
+      title: 'আপনার ওয়ার্কশিটসমূহ',
+      subtitle: 'রিয়েল-টাইমে আপনার শিটগুলো পরিচালনা, সুইচ এবং রিনেম করুন',
+      addSheetPlaceholder: 'নতুন শিটের নাম...',
+      addSheetBtn: 'শিট যুক্ত করুন',
+      renameBtn: 'রিনেম',
+      saveBtn: 'সেভ',
+      cancelBtn: 'বাতিল',
+      activeBadge: 'সক্রিয়',
+      switchSheetTooltip: 'অ্যাক্টিভ শিট করতে ক্লিক করুন',
+      recordsCount: 'টি রেকর্ড',
+      deleteTooltip: 'ওয়ার্কশিট মুছুন',
+      deleteConfirm: 'আপনি কি নিশ্চিত যে "{sheet}" ওয়ার্কশিট এবং এর সমস্ত রেকর্ড মুছে ফেলতে চান?',
+      nameExistsAlert: 'এই নামের ওয়ার্কশিট ইতিমধ্যে বিদ্যমান!',
+      emptyNameAlert: 'ওয়ার্কশিটের নাম ফাঁকা রাখা যাবে না!',
+      minSheetAlert: 'কমপক্ষে একটি ওয়ার্কশিট থাকা আবশ্যক!',
+    },
+    visualOverview: {
+      sectionTitle: 'ওয়ার্কফ্লো অ্যানালিটিক্স ও ভিজ্যুয়াল প্রোগ্রেস',
+      todayProgressTitle: 'আজকের কাজের লক্ষ্যমাত্রা',
+      todayProgressSub: 'দৈনিক ৮ ঘণ্টা প্রোডাক্টিভিটি গেজ',
+      dailyTarget: '৮ ঘণ্টার লক্ষ্যমাত্রার',
+      worksheetsDistTitle: 'ওয়ার্কশিট ডিস্ট্রিবিউশন (পাই চার্ট)',
+      worksheetsDistSub: 'প্রতিটি শিটের এন্ট্রি বিন্যাস',
+      hoursRatioTitle: 'সম্পন্ন বনাম বাকি কাজের সময়',
+      completedHours: 'সম্পন্ন সময়',
+      dueHours: 'বাকি সময়',
+      completionRate: 'সম্পন্নের হার',
+      totalActivityTitle: 'মোট অ্যাক্টিভিটি ও রেকর্ড',
+      totalEntries: 'মোট এন্ট্রি',
+      activeWorksheets: 'সক্রিয় ওয়ার্কশিট',
+      onTrack: 'চলমান',
+      goalReached: 'লক্ষ্যমাত্রা অর্জিত',
+      noWorkYet: 'আজ কোনো এন্ট্রি নেই',
+    },
+    mobileNav: {
+      progress: 'অগ্রগতি',
+      form: 'ফরম',
+      worksheets: 'ওয়ার্কশিট',
+      preview: 'প্রিভিউ',
     },
   },
 };

@@ -60,7 +60,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({
 
       // 1. Worksheet Filter
       if (selectedSheetFilter !== 'all') {
-        const itemSheet = item.sheetName || 'Home Works';
+        const itemSheet = item.sheetName || 'Untitled Worksheet';
         if (itemSheet !== selectedSheetFilter) return false;
       }
 
@@ -153,7 +153,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({
     ];
 
     const rows = filteredItems.map(item => [
-      `"${item.sheetName || 'Home Works'}"`,
+      `"${item.sheetName || 'Untitled Worksheet'}"`,
       `"${item.date}"`,
       `"${item.workHours || '0'}"`,
       `"${(item.work1 || '').replace(/"/g, '""')}"`,
@@ -248,7 +248,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({
         <div className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-6 py-3.5 space-y-3">
           {/* 1. Worksheet Selector Bar */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-bold text-slate-600 dark:text-slate-400 flex items-center gap-1 mr-1">
+            <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1 mr-1">
               <FileSpreadsheet className={`w-3.5 h-3.5 ${accentConfig.textClass}`} />
               <span>{t.statsModal.filterSheetLabel}</span>
             </span>
@@ -257,13 +257,16 @@ export const StatsModal: React.FC<StatsModalProps> = ({
               type="button"
               id="stats-sheet-filter-all"
               onClick={() => setSelectedSheetFilter('all')}
+              style={selectedSheetFilter === 'all' ? { backgroundColor: accentConfig.hex } : undefined}
               className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
                 selectedSheetFilter === 'all'
-                  ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xs'
-                  : 'bg-white dark:bg-slate-850 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
+                  ? `${accentConfig.activeTabClass}`
+                  : 'bg-white text-black hover:bg-slate-100 border border-slate-300 dark:border-slate-700'
               }`}
             >
-              {t.common.allSheets}
+              <span className={selectedSheetFilter === 'all' ? 'text-white' : 'text-black'}>
+                {t.common.allSheets}
+              </span>
             </button>
 
             {worksheets.map(sheet => (
@@ -275,11 +278,13 @@ export const StatsModal: React.FC<StatsModalProps> = ({
                 className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                   selectedSheetFilter === sheet
                     ? `${accentConfig.activeTabClass}`
-                    : 'bg-white dark:bg-slate-850 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
+                    : 'bg-white text-black hover:bg-slate-100 border border-slate-300 dark:border-slate-700'
                 }`}
               >
                 <span>📑</span>
-                <span>{sheet}</span>
+                <span className={selectedSheetFilter === sheet ? 'text-white' : 'text-black'}>
+                  {sheet}
+                </span>
               </button>
             ))}
           </div>
@@ -288,7 +293,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-200/60 dark:border-slate-800">
             {/* Filter Buttons */}
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-              <span className="text-xs font-bold text-slate-600 dark:text-slate-400 flex items-center gap-1 mr-1">
+              <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1 mr-1">
                 <Filter className={`w-3.5 h-3.5 ${accentConfig.textClass}`} />
                 <span>{language === 'bn' ? 'সময়কাল:' : 'Range:'}</span>
               </span>
@@ -309,11 +314,13 @@ export const StatsModal: React.FC<StatsModalProps> = ({
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs ${
                     timeRange === tab.id
                       ? `${accentConfig.activeTabClass}`
-                      : 'bg-white dark:bg-slate-850 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
+                      : 'bg-white text-black hover:bg-slate-100 border border-slate-300 dark:border-slate-700'
                   }`}
                 >
                   <span>{tab.icon}</span>
-                  <span>{tab.label}</span>
+                  <span className={timeRange === tab.id ? 'text-white' : 'text-black'}>
+                    {tab.label}
+                  </span>
                 </button>
               ))}
             </div>
@@ -572,7 +579,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({
                           {item.date}
                         </span>
                         <span className="px-2 py-0.2 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold text-[10px]">
-                          📑 {item.sheetName || 'Home Works'}
+                          📑 {item.sheetName || 'Untitled Worksheet'}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">

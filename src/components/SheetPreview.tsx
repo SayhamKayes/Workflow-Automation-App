@@ -1,5 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 import { WorkflowItem } from '../types';
+import { ShareSheetModal } from './ShareSheetModal';
 import {
   FileSpreadsheet,
   Sparkles,
@@ -10,6 +12,10 @@ import {
   Plus,
   Pencil,
   X,
+  Share2,
+  Globe,
+  Lock,
+  ChevronDown,
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
@@ -42,10 +48,24 @@ export const SheetPreview: React.FC<SheetPreviewProps> = ({
 
   const [isCreatingSheet, setIsCreatingSheet] = useState(false);
   const [newSheetInput, setNewSheetInput] = useState('');
+  const [isShareDropdownOpen, setIsShareDropdownOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareModalTab, setShareModalTab] = useState<'public' | 'private'>('public');
+  const shareDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (shareDropdownRef.current && !shareDropdownRef.current.contains(e.target as Node)) {
+        setIsShareDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Filter items that belong to the currently selected worksheet
   const currentSheetItems = useMemo(() => {
-    return items.filter(item => (item.sheetName || 'Home Works') === activeSheet);
+    return items.filter(item => (item.sheetName || 'Untitled Worksheet') === activeSheet);
   }, [items, activeSheet]);
 
   // Group items by Month & Year based on item.date
@@ -143,6 +163,44 @@ export const SheetPreview: React.FC<SheetPreviewProps> = ({
     document.body.removeChild(link);
   };
 
+  const exportXLSX = () => {
+    if (currentSheetItems.length === 0) return;
+    const rows = currentSheetItems.map(item => ({
+      Worksheet: item.sheetName || activeSheet,
+      Date: item.date,
+      'Work Hours': item.workHours || '0',
+      'Work 1': item.work1,
+      'Work 2': item.work2 || '',
+      'Work 3': item.work3 || '',
+      'Work 4': item.work4 || '',
+      'Work Due Hours': item.workDueHours || '0',
+      'Signature Status': item.signature ? 'Signed' : 'No Signature',
+      'Submitted At': item.submittedAt,
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [
+      { wch: 18 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 30 },
+      { wch: 25 },
+      { wch: 25 },
+      { wch: 25 },
+      { wch: 14 },
+      { wch: 16 },
+      { wch: 22 },
+    ];
+
+    const wb = XLSX.utils.book_new();
+    const cleanTabName = (activeSheet || 'Worksheet').replace(/[\\/?*[\]]/g, '_').substring(0, 31);
+    XLSX.utils.book_append_sheet(wb, ws, cleanTabName);
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const safeFileName = (activeSheet || 'workflow').replace(/\s+/g, '_');
+    XLSX.writeFile(wb, `workflow_${safeFileName}_export_${dateStr}.xlsx`);
+  };
+
   const handleCreateSheetSubmit = () => {
     if (newSheetInput.trim()) {
       const trimmed = newSheetInput.trim();
@@ -158,7 +216,7 @@ export const SheetPreview: React.FC<SheetPreviewProps> = ({
       alert(t.preview.minSheetAlert);
       return;
     }
-    const count = items.filter(i => (i.sheetName || 'Home Works') === sheet).length;
+    const count = items.filter(i => (i.sheetName || 'Untitled Worksheet') === sheet).length;
     const msg = t.preview.deleteSheetConfirm.replace('{sheet}', sheet);
 
     if (window.confirm(msg)) {
@@ -189,7 +247,8 @@ export const SheetPreview: React.FC<SheetPreviewProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* 1. Export CSV Button */}
           {currentSheetItems.length > 0 && (
             <button
               type="button"
@@ -202,20 +261,68 @@ export const SheetPreview: React.FC<SheetPreviewProps> = ({
             </button>
           )}
 
-          {/* Delete Active Sheet Button */}
-          {worksheets.length > 1 && (
+          {/* 2. Export XLSX Button */}
+          {currentSheetItems.length > 0 && (
             <button
               type="button"
-              id="delete-active-sheet-btn"
-              onClick={() => handleDeleteSheetClick(activeSheet)}
-              className="text-xs font-medium px-3 py-1.5 rounded-lg border border-rose-200 dark:border-rose-900/60 bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors flex items-center gap-1.5 shadow-2xs"
-              title={t.preview.deleteSheetBtn}
+              id="export-xlsx-btn"
+              onClick={exportXLSX}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-emerald-300 dark:border-emerald-800/80 bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors flex items-center gap-1.5 shadow-2xs"
             >
-              <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-              <span>{t.preview.deleteSheetBtn}</span>
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              {t.preview.exportXlsx}
             </button>
           )}
 
+          {/* 3. Share Sheet Dropdown */}
+          <div className="relative" ref={shareDropdownRef}>
+            <button
+              type="button"
+              id="share-sheet-btn"
+              onClick={() => setIsShareDropdownOpen(prev => !prev)}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center gap-1.5 shadow-2xs"
+              title={t.preview.shareSheet}
+            >
+              <Share2 className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+              <span>{t.preview.shareSheet}</span>
+              <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${isShareDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Dropdown Menu: Public Link & Private Access */}
+            {isShareDropdownOpen && (
+              <div className="absolute right-0 top-full mt-1.5 w-48 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl py-1.5 z-30 animate-in fade-in zoom-in-95 duration-150">
+                <button
+                  type="button"
+                  id="share-public-link-opt"
+                  onClick={() => {
+                    setIsShareDropdownOpen(false);
+                    setShareModalTab('public');
+                    setIsShareModalOpen(true);
+                  }}
+                  className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 flex items-center gap-2 transition-colors"
+                >
+                  <Globe className="w-3.5 h-3.5 text-emerald-500" />
+                  <span className="truncate">{t.preview.publicLink}</span>
+                </button>
+
+                <button
+                  type="button"
+                  id="share-private-access-opt"
+                  onClick={() => {
+                    setIsShareDropdownOpen(false);
+                    setShareModalTab('private');
+                    setIsShareModalOpen(true);
+                  }}
+                  className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 flex items-center gap-2 transition-colors"
+                >
+                  <Lock className="w-3.5 h-3.5 text-indigo-500" />
+                  <span className="truncate">{t.preview.privateAccess}</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* 4. Clear Sheet Data Button */}
           {onClearDemoData && items.length > 0 && (
             <button
               type="button"
@@ -228,6 +335,20 @@ export const SheetPreview: React.FC<SheetPreviewProps> = ({
               {t.preview.clearData}
             </button>
           )}
+
+          {/* Delete Active Sheet Button (if multiple worksheets exist) */}
+          {worksheets.length > 1 && (
+            <button
+              type="button"
+              id="delete-active-sheet-btn"
+              onClick={() => handleDeleteSheetClick(activeSheet)}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg border border-rose-200 dark:border-rose-900/60 bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors flex items-center gap-1.5 shadow-2xs"
+              title={t.preview.deleteSheetBtn}
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+              <span>{t.preview.deleteSheetBtn}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -235,7 +356,7 @@ export const SheetPreview: React.FC<SheetPreviewProps> = ({
       <div className="bg-slate-100 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-3 pt-2 flex items-center justify-between gap-2 overflow-x-auto">
         <div className="flex items-center gap-1">
           {worksheets.map(sheet => {
-            const count = items.filter(i => (i.sheetName || 'Home Works') === sheet).length;
+            const count = items.filter(i => (i.sheetName || 'Untitled Worksheet') === sheet).length;
             const isActive = activeSheet === sheet;
             return (
               <div
@@ -496,6 +617,13 @@ export const SheetPreview: React.FC<SheetPreviewProps> = ({
           </table>
         )}
       </div>
+
+      {/* Share Sheet Modal */}
+      <ShareSheetModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        initialTab={shareModalTab}
+      />
     </div>
   );
 };

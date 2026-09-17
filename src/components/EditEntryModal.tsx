@@ -35,7 +35,7 @@ export const EditEntryModal: React.FC<EditEntryModalProps> = ({
   const { language, t } = useLanguage();
   const { accentConfig } = useTheme();
 
-  const [sheetName, setSheetName] = useState('Home Works');
+  const [sheetName, setSheetName] = useState('Untitled Worksheet');
   const [date, setDate] = useState('');
   const [work1, setWork1] = useState('');
   const [work2, setWork2] = useState('');
@@ -51,7 +51,7 @@ export const EditEntryModal: React.FC<EditEntryModalProps> = ({
   // Populate state whenever item changes
   useEffect(() => {
     if (item) {
-      setSheetName(item.sheetName || 'Home Works');
+      setSheetName(item.sheetName || 'Untitled Worksheet');
       setDate(item.date || '');
       setWork1(item.work1 || '');
       setWork2(item.work2 || '');
@@ -116,7 +116,7 @@ export const EditEntryModal: React.FC<EditEntryModalProps> = ({
             <div>
               <h2 className="text-base sm:text-lg font-bold text-white">{t.editModal.title}</h2>
               <p className="text-xs text-slate-400">
-                {t.common.sheet}: {item.sheetName || 'Home Works'} • {item.date}
+                {t.common.sheet}: {item.sheetName || 'Untitled Worksheet'} • {item.date}
               </p>
             </div>
           </div>
@@ -207,7 +207,11 @@ export const EditEntryModal: React.FC<EditEntryModalProps> = ({
               </label>
               <VoiceInputButton
                 fieldName="Edit Work 1"
-                onTranscript={text => setWork1(prev => (prev ? `${prev} ${text}` : text))}
+                value={work1}
+                onChange={val => {
+                  setWork1(val);
+                  if (errors.work1) setErrors(p => ({ ...p, work1: '' }));
+                }}
               />
             </div>
             <input
@@ -249,9 +253,16 @@ export const EditEntryModal: React.FC<EditEntryModalProps> = ({
             {showOptionalWorks && (
               <div className="mt-2 space-y-2.5 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 animate-fadeIn">
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-0.5">
-                    {t.form.work2Label}
-                  </label>
+                  <div className="flex items-center justify-between mb-0.5">
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                      {t.form.work2Label}
+                    </label>
+                    <VoiceInputButton
+                      fieldName="Edit Work 2"
+                      value={work2}
+                      onChange={val => setWork2(val)}
+                    />
+                  </div>
                   <input
                     type="text"
                     value={work2}
@@ -260,9 +271,16 @@ export const EditEntryModal: React.FC<EditEntryModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-0.5">
-                    {t.form.work3Label}
-                  </label>
+                  <div className="flex items-center justify-between mb-0.5">
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                      {t.form.work3Label}
+                    </label>
+                    <VoiceInputButton
+                      fieldName="Edit Work 3"
+                      value={work3}
+                      onChange={val => setWork3(val)}
+                    />
+                  </div>
                   <input
                     type="text"
                     value={work3}
@@ -271,9 +289,16 @@ export const EditEntryModal: React.FC<EditEntryModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-0.5">
-                    {t.form.work4Label}
-                  </label>
+                  <div className="flex items-center justify-between mb-0.5">
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                      {t.form.work4Label}
+                    </label>
+                    <VoiceInputButton
+                      fieldName="Edit Work 4"
+                      value={work4}
+                      onChange={val => setWork4(val)}
+                    />
+                  </div>
                   <input
                     type="text"
                     value={work4}

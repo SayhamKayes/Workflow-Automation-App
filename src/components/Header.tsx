@@ -33,7 +33,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSettingsModal,
   onOpenStatsModal,
   todayWorkHours = 7.5,
-  activeSheet = 'Home Works',
+  activeSheet = 'Untitled Worksheet',
 }) => {
   const { theme, toggleTheme, accent, setAccent, palette, accentConfig } = useTheme();
   const { language, setLanguage, t } = useLanguage();
@@ -79,7 +79,7 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <FileSpreadsheet className="w-5 h-5" />
           </div>
-          <div>
+          <div className="hidden sm:block">
             <div className="flex items-center gap-2">
               <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-tight">
                 {t.common.appName}
@@ -112,7 +112,7 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             id="open-header-stats-btn"
             onClick={onOpenStatsModal}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r ${accentConfig.gradient} text-white text-xs font-bold shadow-md ${accentConfig.shadow} transition-all group active:scale-95`}
+            className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r ${accentConfig.gradient} text-white text-xs font-bold shadow-md ${accentConfig.shadow} transition-all group active:scale-95`}
             title={t.header.statsTitle}
           >
             <TrendingUp className="w-4 h-4 text-white/80 group-hover:scale-110 transition-transform" />
@@ -129,15 +129,14 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           {/* Connection Status Pill */}
-          <button
+          {/* <button
             type="button"
             id="connection-status-pill-btn"
             onClick={onOpenSettingsModal}
-            className={`hidden 2xl:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
-              isConnected
+            className={`hidden 2xl:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border ${isConnected
                 ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100'
                 : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800/60 hover:bg-amber-100'
-            }`}
+              }`}
             title={isConnected ? t.header.scriptConnected : t.header.previewMode}
           >
             {isConnected ? (
@@ -151,10 +150,10 @@ export const Header: React.FC<HeaderProps> = ({
                 <span>{t.header.previewMode}</span>
               </>
             )}
-          </button>
+          </button> */}
 
           {/* Apps Script Code Button */}
-          <button
+          {/* <button
             type="button"
             id="open-apps-script-code-btn"
             onClick={onOpenAppsScriptModal}
@@ -162,10 +161,10 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Code2 className="w-4 h-4" />
             <span>{t.header.appsScriptBtn}</span>
-          </button>
+          </button> */}
 
           {/* Settings Button */}
-          <button
+          {/* <button
             type="button"
             id="open-settings-modal-btn"
             onClick={onOpenSettingsModal}
@@ -173,10 +172,10 @@ export const Header: React.FC<HeaderProps> = ({
             title={t.header.settingsBtn}
           >
             <Settings className="w-4 h-4" />
-          </button>
+          </button> */}
 
           {/* Divider */}
-          <div className="h-6 w-[1px] bg-slate-200 dark:bg-slate-700 mx-0.5"></div>
+          {/* <div className="h-6 w-[1px] bg-slate-200 dark:bg-slate-700 mx-0.5"></div> */}
 
           {/* TOP RIGHT 1: 7-Color Accent Palette Dropdown */}
           <div className="relative" ref={paletteRef}>
@@ -215,11 +214,10 @@ export const Header: React.FC<HeaderProps> = ({
                           setIsPaletteOpen(false);
                         }}
                         style={{ backgroundColor: option.hex }}
-                        className={`w-6 h-6 rounded-full transition-all flex items-center justify-center relative hover:scale-115 ${
-                          isSelected
-                            ? 'ring-3 ring-offset-2 ring-slate-900 dark:ring-white dark:ring-offset-slate-800 scale-110'
-                            : 'opacity-85 hover:opacity-100'
-                        }`}
+                        className={`w-6 h-6 rounded-full transition-all flex items-center justify-center relative hover:scale-115 ${isSelected
+                          ? 'ring-3 ring-offset-2 ring-slate-900 dark:ring-white dark:ring-offset-slate-800 scale-110'
+                          : 'opacity-85 hover:opacity-100'
+                          }`}
                         title={language === 'bn' ? option.labelBn : option.labelEn}
                       >
                         {isSelected && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
@@ -276,11 +274,10 @@ export const Header: React.FC<HeaderProps> = ({
                     setLanguage('en');
                     setIsLangOpen(false);
                   }}
-                  className={`w-full px-3 py-2 text-xs text-left flex items-center justify-between transition-colors ${
-                    language === 'en'
-                      ? `${accentConfig.bgLight} ${accentConfig.textClass} font-bold`
-                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50'
-                  }`}
+                  className={`w-full px-3 py-2 text-xs text-left flex items-center justify-between transition-colors ${language === 'en'
+                    ? `${accentConfig.bgLight} ${accentConfig.textClass} font-bold`
+                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                    }`}
                 >
                   <span className="flex items-center gap-2">
                     <span>🇺🇸</span>
@@ -295,11 +292,10 @@ export const Header: React.FC<HeaderProps> = ({
                     setLanguage('bn');
                     setIsLangOpen(false);
                   }}
-                  className={`w-full px-3 py-2 text-xs text-left flex items-center justify-between transition-colors ${
-                    language === 'bn'
-                      ? `${accentConfig.bgLight} ${accentConfig.textClass} font-bold`
-                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50'
-                  }`}
+                  className={`w-full px-3 py-2 text-xs text-left flex items-center justify-between transition-colors ${language === 'bn'
+                    ? `${accentConfig.bgLight} ${accentConfig.textClass} font-bold`
+                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                    }`}
                 >
                   <span className="flex items-center gap-2">
                     <span>🇧🇩</span>
@@ -369,11 +365,10 @@ export const Header: React.FC<HeaderProps> = ({
                         {user.email}
                       </p>
                       <span
-                        className={`inline-block mt-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-sm ${
-                          user.provider === 'google'
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                            : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300'
-                        }`}
+                        className={`inline-block mt-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-sm ${user.provider === 'google'
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                          : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300'
+                          }`}
                       >
                         {user.provider === 'google' ? 'Google Account' : 'Demo Account'}
                       </span>

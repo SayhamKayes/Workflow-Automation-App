@@ -265,7 +265,10 @@ function AppContent() {
 
           if (localOnlyItems.length > 0) {
             // Upload any local items created while offline or prior to login
-            await batchAppendWorkflowRowsToSheet(accessToken, spreadsheetInfo.id, localOnlyItems);
+            await batchAppendWorkflowRowsToSheet(accessToken, spreadsheetInfo.id, localOnlyItems, {
+              email: user.email,
+              name: user.name,
+            });
           }
 
           const combinedItems = [...localOnlyItems, ...data.items];
@@ -281,7 +284,10 @@ function AppContent() {
           const localItems = itemsRef.current;
           if (localItems && localItems.length > 0) {
             console.log('Populating Google Sheet with local workflow items...');
-            await batchAppendWorkflowRowsToSheet(accessToken, spreadsheetInfo.id, localItems);
+            await batchAppendWorkflowRowsToSheet(accessToken, spreadsheetInfo.id, localItems, {
+              email: user.email,
+              name: user.name,
+            });
           }
         }
       });
@@ -407,7 +413,10 @@ function AppContent() {
     // 2. If Google Sheets connected, sync update directly to Google Sheets!
     if (user.provider === 'google' && accessToken && spreadsheetInfo?.id) {
       try {
-        await updateWorkflowRowInSheet(accessToken, spreadsheetInfo.id, updatedItem);
+        await updateWorkflowRowInSheet(accessToken, spreadsheetInfo.id, updatedItem, {
+          email: user.email,
+          name: user.name,
+        });
       } catch (err) {
         console.warn('Could not update row in Google Sheets', err);
       }
@@ -462,7 +471,10 @@ function AppContent() {
     // 1. If Google Account is connected with personal spreadsheet, write directly to Google Sheets!
     if (user.provider === 'google' && accessToken && spreadsheetInfo?.id) {
       try {
-        await appendWorkflowRowToSheet(accessToken, spreadsheetInfo.id, entry);
+        await appendWorkflowRowToSheet(accessToken, spreadsheetInfo.id, entry, {
+          email: user.email,
+          name: user.name,
+        });
       } catch (err) {
         console.warn('Could not post directly to user Google Sheet', err);
       }

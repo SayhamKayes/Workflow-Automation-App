@@ -59,6 +59,254 @@ export async function findExistingSpreadsheet(accessToken: string): Promise<Goog
 }
 
 /**
+ * Computes standard user signature filename, e.g. "username-signature.png".
+ */
+export function getUserSignatureFileName(email?: string, name?: string): string {
+  let base = 'user';
+  if (email && email.includes('@')) {
+    base = email.split('@')[0].trim().toLowerCase();
+  } else if (name) {
+    base = name.trim().toLowerCase().replace(/\s+/g, '_');
+  }
+  base = base.replace(/[^a-z0-9_-]/gi, '');
+  return `${base || 'user'}-signature.png`;
+}
+
+/**
+ * Parses a base64 Data URL into Uint8Array binary and MIME type.
+ */
+export function parseDataUrl(dataUrl: string): { uint8Array: Uint8Array; mimeType: string } {
+  const parts = dataUrl.split(',');
+  const mimeMatch = parts[0]?.match(/:(.*?);/);
+  const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
+  const byteString = atob(parts[1] || '');
+  const uint8Array = new Uint8Array(byteString.length);
+  for (let i = 0; i < byteString.length; i++) {
+    uint8Array[i] = byteString.charCodeAt(i);
+  }
+  return { uint8Array, mimeType };
+}
+
+/**
+ * Searches user's Google Drive for an existing signature file matching filename.
+ */
+export async function findSignatureFileInDrive(
+  accessToken: string,
+  fileName: string
+): Promise<{ id: string; name: string } | null> {
+  try {
+    const query = encodeURIComponent(`name = '${fileName}' and trashed = false`);
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name)&spaces=drive`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.files && data.files.length > 0) {
+      return data.files[0];
+    }
+    return null;
+  } catch (err) {
+    console.warn('Could not search for existing signature file:', err);
+    return null;
+  }
+}
+
+/**
+ * Uploads or updates a signature (drawn or uploaded) to the user's Google Drive as ${username}-signature.png.
+ * Sets permission so Google Sheets =IMAGE(...) formula can render it.
+ * Returns fileId and public direct image CDN URL.
+ */
+export async function uploadOrUpdateSignatureInDrive(
+  accessToken: string,
+  dataUrl: string,
+  email?: string,
+  name?: string
+): Promise<{ fileId: string; viewUrl: string } | null> {
+  try {
+    const fileName = getUserSignatureFileName(email, name);
+    const { uint8Array, mimeType } = parseDataUrl(dataUrl);
+
+    const existing = await findSignatureFileInDrive(accessToken, fileName);
+    let fileId: string | null = null;
+
+    if (existing) {
+      // Update existing file media
+      const updateRes = await fetch(
+        `https://www.googleapis.com/upload/drive/v3/files/${existing.id}?uploadType=media`,
+        {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': mimeType,
+          },
+          body: uint8Array,
+        }
+      );
+      if (updateRes.ok) {
+        fileId = existing.id;
+      }
+    }
+
+    if (!fileId) {
+      // Create new file with standard multipart/related upload
+      const boundary = '-------' + Math.random().toString(36).substring(2);
+      const delimiter = `\r\n--${boundary}\r\n`;
+      const closeDelim = `\r\n--${boundary}--`;
+
+      const metadata = {
+        name: fileName,
+        mimeType: mimeType,
+      };
+
+      const metadataHeader = `Content-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}`;
+      const mediaHeader = `Content-Type: ${mimeType}\r\n\r\n`;
+
+      const multipartBlob = new Blob(
+        [
+          delimiter,
+          metadataHeader,
+          delimiter,
+          mediaHeader,
+          uint8Array,
+          closeDelim,
+        ],
+        { type: `multipart/related; boundary=${boundary}` }
+      );
+
+      const createRes = await fetch(
+        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': `multipart/related; boundary=${boundary}`,
+          },
+          body: multipartBlob,
+        }
+      );
+
+      if (createRes.ok) {
+        const createData = await createRes.json();
+        fileId = createData.id;
+      }
+    }
+
+    if (!fileId) {
+      console.warn('Failed to upload/update signature in Google Drive');
+      return null;
+    }
+
+    // Set permission so Google Sheets =IMAGE(...) formula can render it
+    try {
+      await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          role: 'reader',
+          type: 'anyone',
+        }),
+      });
+    } catch (pErr) {
+      console.warn('Could not set permissions on signature file in Drive:', pErr);
+    }
+
+    const viewUrl = `https://lh3.googleusercontent.com/d/${fileId}`;
+    try {
+      localStorage.setItem('workflow_user_signature_url', viewUrl);
+      localStorage.setItem('workflow_user_signature_file_id', fileId);
+    } catch {
+      // ignore
+    }
+
+    return { fileId, viewUrl };
+  } catch (err) {
+    console.error('Error syncing signature to Google Drive:', err);
+    return null;
+  }
+}
+
+/**
+ * Restores user's signature from Google Drive when logging in or on page load.
+ */
+export async function fetchUserSignatureFromDrive(
+  accessToken: string,
+  email?: string,
+  name?: string
+): Promise<{ dataUrl: string; viewUrl: string; fileId: string } | null> {
+  try {
+    const fileName = getUserSignatureFileName(email, name);
+    const existing = await findSignatureFileInDrive(accessToken, fileName);
+    if (!existing) return null;
+
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${existing.id}?alt=media`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) return null;
+
+    const blob = await res.blob();
+    return new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const viewUrl = `https://lh3.googleusercontent.com/d/${existing.id}`;
+        resolve({ dataUrl, viewUrl, fileId: existing.id });
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch (err) {
+    console.warn('Could not fetch signature from Google Drive:', err);
+    return null;
+  }
+}
+
+/**
+ * Resolves the Google Sheets cell representation for a signature.
+ * If signature exists, returns '=IMAGE("...")' using the Google Drive image URL.
+ */
+export async function resolveSignatureCell(
+  accessToken: string,
+  signature?: string,
+  userInfo?: { email?: string; name?: string }
+): Promise<string> {
+  if (!signature) return '❌ No Signature';
+
+  // 1. Check if cached Drive view URL is available
+  let cdnUrl = localStorage.getItem('workflow_user_signature_url') || '';
+
+  // 2. If signature is a base64 Data URL, upload or update in Google Drive
+  if (signature.startsWith('data:image/')) {
+    try {
+      const uploadRes = await uploadOrUpdateSignatureInDrive(
+        accessToken,
+        signature,
+        userInfo?.email,
+        userInfo?.name
+      );
+      if (uploadRes?.viewUrl) {
+        cdnUrl = uploadRes.viewUrl;
+      }
+    } catch (e) {
+      console.warn('Could not sync signature to Drive during row insertion:', e);
+    }
+  }
+
+  // 3. If Drive URL exists, embed directly into the cell using =IMAGE(...)
+  if (cdnUrl) {
+    return `=IMAGE("${cdnUrl}")`;
+  }
+
+  return '✔️ Signed';
+}
+
+
+/**
  * Creates a brand new Google Spreadsheet in the user's personal Google Drive
  * with formatted headers.
  */
@@ -171,7 +419,7 @@ export async function initSheetHeaders(
       { index: 5, width: 210 }, // Work 3
       { index: 6, width: 210 }, // Work 4
       { index: 7, width: 135 }, // Due Hours (hrs)
-      { index: 8, width: 125 }, // Signature
+      { index: 8, width: 140 }, // Signature
       { index: 9, width: 140 }, // Worksheet
       { index: 10, width: 170 }, // Submitted At
     ].map(col => ({
@@ -476,7 +724,8 @@ export async function deleteWorksheetTab(
 export async function appendWorkflowRowToSheet(
   accessToken: string,
   spreadsheetId: string,
-  item: WorkflowItem
+  item: WorkflowItem,
+  userInfo?: { email?: string; name?: string }
 ): Promise<boolean> {
   try {
     const sheetName = item.sheetName || DEFAULT_WORKSHEET_NAME;
@@ -484,6 +733,8 @@ export async function appendWorkflowRowToSheet(
     // Convert workHours and dueHours to pure numbers so Google Sheets can automatically calculate SUM and Average upon selection
     const parsedWorkHours = parseFloat(String(item.workHours || '0')) || 0;
     const parsedDueHours = parseFloat(String(item.workDueHours || '0')) || 0;
+
+    const signatureCell = await resolveSignatureCell(accessToken, item.signature, userInfo);
 
     const row = [
       item.id,
@@ -494,7 +745,7 @@ export async function appendWorkflowRowToSheet(
       item.work3 || '',
       item.work4 || '',
       parsedDueHours,
-      item.signature ? '✔️ Signed' : '❌ No Signature',
+      signatureCell,
       sheetName,
       item.submittedAt || new Date().toLocaleString(),
     ];
@@ -554,7 +805,8 @@ export async function appendWorkflowRowToSheet(
 export async function batchAppendWorkflowRowsToSheet(
   accessToken: string,
   spreadsheetId: string,
-  items: WorkflowItem[]
+  items: WorkflowItem[],
+  userInfo?: { email?: string; name?: string }
 ): Promise<boolean> {
   if (!items || items.length === 0) return true;
 
@@ -589,19 +841,23 @@ export async function batchAppendWorkflowRowsToSheet(
         existingTabs.add(sheetName);
       }
 
-      const rows = sheetItems.map(item => [
-        item.id,
-        item.date,
-        parseFloat(String(item.workHours || '0')) || 0,
-        item.work1 || '',
-        item.work2 || '',
-        item.work3 || '',
-        item.work4 || '',
-        parseFloat(String(item.workDueHours || '0')) || 0,
-        item.signature ? '✔️ Signed' : '❌ No Signature',
-        sheetName,
-        item.submittedAt || new Date().toLocaleString(),
-      ]);
+      const rows: (string | number)[][] = [];
+      for (const item of sheetItems) {
+        const signatureCell = await resolveSignatureCell(accessToken, item.signature, userInfo);
+        rows.push([
+          item.id,
+          item.date,
+          parseFloat(String(item.workHours || '0')) || 0,
+          item.work1 || '',
+          item.work2 || '',
+          item.work3 || '',
+          item.work4 || '',
+          parseFloat(String(item.workDueHours || '0')) || 0,
+          signatureCell,
+          sheetName,
+          item.submittedAt || new Date().toLocaleString(),
+        ]);
+      }
 
       const rangeA1 = formatA1Range(sheetName, 'A1');
       await fetch(
@@ -661,7 +917,7 @@ async function triggerAutoResizeAndFormatting(
         },
         body: JSON.stringify({
           requests: [
-            // 1. Auto-resize all 11 columns to fit their longest content
+            // 1. Auto-resize all 11 columns to fit their content
             {
               autoResizeDimensions: {
                 dimensions: {
@@ -670,6 +926,36 @@ async function triggerAutoResizeAndFormatting(
                   startIndex: 0,
                   endIndex: 11,
                 },
+              },
+            },
+            // Explicit width for Signature column
+            {
+              updateDimensionProperties: {
+                range: {
+                  sheetId,
+                  dimension: 'COLUMNS',
+                  startIndex: 8,
+                  endIndex: 9,
+                },
+                properties: {
+                  pixelSize: 140,
+                },
+                fields: 'pixelSize',
+              },
+            },
+            // Comfortable row height for data rows so =IMAGE(...) signatures look clear
+            {
+              updateDimensionProperties: {
+                range: {
+                  sheetId,
+                  dimension: 'ROWS',
+                  startIndex: 1,
+                  endIndex: 200,
+                },
+                properties: {
+                  pixelSize: 42,
+                },
+                fields: 'pixelSize',
               },
             },
             // 2. Align task description columns (Work 1, Work 2, Work 3, Work 4) to the LEFT with wrap
@@ -742,7 +1028,8 @@ async function triggerAutoResizeAndFormatting(
 export async function updateWorkflowRowInSheet(
   accessToken: string,
   spreadsheetId: string,
-  item: WorkflowItem
+  item: WorkflowItem,
+  userInfo?: { email?: string; name?: string }
 ): Promise<boolean> {
   try {
     const sheetName = item.sheetName || DEFAULT_WORKSHEET_NAME;
@@ -770,6 +1057,7 @@ export async function updateWorkflowRowInSheet(
 
     const parsedWorkHours = parseFloat(String(item.workHours || '0')) || 0;
     const parsedDueHours = parseFloat(String(item.workDueHours || '0')) || 0;
+    const signatureCell = await resolveSignatureCell(accessToken, item.signature, userInfo);
 
     const row = [
       item.id,
@@ -780,7 +1068,7 @@ export async function updateWorkflowRowInSheet(
       item.work3 || '',
       item.work4 || '',
       parsedDueHours,
-      item.signature ? '✔️ Signed' : '❌ No Signature',
+      signatureCell,
       sheetName,
       item.submittedAt || new Date().toLocaleString(),
     ];
@@ -982,7 +1270,14 @@ export async function fetchSpreadsheetData(
           work3: String(r[5] || ''),
           work4: String(r[6] || ''),
           workDueHours: String(r[7] ?? '0'),
-          signature: r[8] && String(r[8]).includes('Signed') ? 'attached' : '',
+          signature:
+            r[8] &&
+            (String(r[8]).includes('Signed') ||
+              String(r[8]).includes('=IMAGE') ||
+              String(r[8]).includes('googleusercontent') ||
+              String(r[8]).includes('drive.google'))
+              ? 'attached'
+              : '',
           sheetName: sheetName, // Always associate the entry with its containing worksheet tab
           submittedAt: String(r[10] || ''),
         });

@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { PenTool, Upload, Trash2, CheckCircle2, RefreshCw } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
+import { uploadOrUpdateSignatureInDrive } from '../services/googleSheetsService';
 
 interface SignaturePadProps {
   signature: string | null;
@@ -16,10 +18,15 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
 }) => {
   const { language } = useLanguage();
   const { theme, accentConfig } = useTheme();
+  const { user, accessToken } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'draw' | 'upload'>('draw');
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasDrawn, setHasDrawn] = useState(false);
+  const [isSyncingWithDrive, setIsSyncingWithDrive] = useState(false);
+  const [isSyncedWithDrive, setIsSyncedWithDrive] = useState<boolean>(() => {
+    return Boolean(localStorage.getItem('workflow_user_signature_url'));
+  });
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Initialize from localStorage on mount
@@ -27,8 +34,26 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
     const savedSignature = localStorage.getItem(STORAGE_KEY);
     if (savedSignature && !signature) {
       onSignatureChange(savedSignature);
+      if (localStorage.getItem('workflow_user_signature_url')) {
+        setIsSyncedWithDrive(true);
+      }
     }
   }, [onSignatureChange, signature]);
+
+  // Listen to remote Google Drive signature update event (e.g. after login)
+  useEffect(() => {
+    const handleSigUpdate = () => {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        onSignatureChange(saved);
+        if (localStorage.getItem('workflow_user_signature_url')) {
+          setIsSyncedWithDrive(true);
+        }
+      }
+    };
+    window.addEventListener('workflow_signature_updated', handleSigUpdate);
+    return () => window.removeEventListener('workflow_signature_updated', handleSigUpdate);
+  }, [onSignatureChange]);
 
   // Set up canvas context
   useEffect(() => {
@@ -101,7 +126,7 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
     ctx.stroke();
   };
 
-  const stopDrawing = () => {
+  const stopDrawing = async () => {
     if (!isDrawing) return;
     setIsDrawing(false);
 
@@ -111,6 +136,26 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
     const dataUrl = canvas.toDataURL('image/png');
     localStorage.setItem(STORAGE_KEY, dataUrl);
     onSignatureChange(dataUrl);
+
+    // Sync drawn signature directly to Google Drive in the background if logged in with Google
+    if (user?.provider === 'google' && accessToken) {
+      setIsSyncingWithDrive(true);
+      try {
+        const uploadRes = await uploadOrUpdateSignatureInDrive(
+          accessToken,
+          dataUrl,
+          user.email,
+          user.name
+        );
+        if (uploadRes?.viewUrl) {
+          setIsSyncedWithDrive(true);
+        }
+      } catch (err) {
+        console.warn('Could not sync drawn signature to Google Drive:', err);
+      } finally {
+        setIsSyncingWithDrive(false);
+      }
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -127,11 +172,31 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
     }
 
     const reader = new FileReader();
-    reader.onload = event => {
+    reader.onload = async event => {
       const dataUrl = event.target?.result as string;
       if (dataUrl) {
         localStorage.setItem(STORAGE_KEY, dataUrl);
         onSignatureChange(dataUrl);
+
+        // Sync uploaded signature directly to Google Drive in the background if logged in with Google
+        if (user?.provider === 'google' && accessToken) {
+          setIsSyncingWithDrive(true);
+          try {
+            const uploadRes = await uploadOrUpdateSignatureInDrive(
+              accessToken,
+              dataUrl,
+              user.email,
+              user.name
+            );
+            if (uploadRes?.viewUrl) {
+              setIsSyncedWithDrive(true);
+            }
+          } catch (err) {
+            console.warn('Could not sync uploaded signature to Google Drive:', err);
+          } finally {
+            setIsSyncingWithDrive(false);
+          }
+        }
       }
     };
     reader.readAsDataURL(file);
@@ -139,6 +204,9 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
 
   const clearSignature = () => {
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem('workflow_user_signature_url');
+    localStorage.removeItem('workflow_user_signature_file_id');
+    setIsSyncedWithDrive(false);
     onSignatureChange(null);
     setHasDrawn(false);
 
@@ -163,9 +231,29 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
           </span>
         </label>
         {signature && (
-          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800/60">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            {language === 'bn' ? 'স্বয়ংক্রিয়ভাবে সংরক্ষিত' : 'Auto-Saved'}
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800/60">
+            {isSyncingWithDrive ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-600 dark:text-indigo-400" />
+                <span className="text-indigo-700 dark:text-indigo-300">
+                  {language === 'bn' ? 'Google Drive-এ সেভ হচ্ছে...' : 'Saving to Drive...'}
+                </span>
+              </>
+            ) : isSyncedWithDrive || user?.provider === 'google' ? (
+              <>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>
+                  {language === 'bn' ? 'Google Drive-এ সংরক্ষিত' : 'Google Drive Synced'}
+                </span>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>
+                  {language === 'bn' ? 'স্বয়ংক্রিয়ভাবে সংরক্ষিত' : 'Auto-Saved'}
+                </span>
+              </>
+            )}
           </span>
         )}
       </div>
@@ -182,13 +270,16 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
               />
             </div>
             <div>
-              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                {language === 'bn' ? 'স্বাক্ষর যুক্ত আছে (Auto-Attached)' : 'Signature Attached'}
+              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <span>{language === 'bn' ? 'স্বাক্ষর প্রস্তুত (Drive Synced)' : 'Signature Ready (Drive Synced)'}</span>
+                {isSyncingWithDrive && (
+                  <RefreshCw className="w-3 h-3 animate-spin text-indigo-500" />
+                )}
               </p>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 {language === 'bn'
-                  ? 'প্রতিটি সাবমিটে স্বয়ংক্রিয়ভাবে এই স্বাক্ষর যোগ হবে'
-                  : 'Automatically included with every workflow submission'}
+                  ? 'গুগল শিটে =IMAGE() আকারে ও Drive-এ আপনার স্বাক্ষর সেভ থাকে'
+                  : 'Automatically embeds as =IMAGE() in Google Sheets & Drive'}
               </p>
             </div>
           </div>

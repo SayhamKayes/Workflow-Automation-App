@@ -4,6 +4,7 @@ import {
   findExistingSpreadsheet,
   createPersonalSpreadsheet,
   DEFAULT_WORKSHEET_NAME,
+  fetchUserSignatureFromDrive,
 } from '../services/googleSheetsService';
 
 export interface UserProfile {
@@ -141,6 +142,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Setup or find personal spreadsheet
             await connectUserSpreadsheet(token);
+
+            // Restore user's saved signature from Google Drive if it exists
+            try {
+              const driveSig = await fetchUserSignatureFromDrive(token, profile.email, profile.name);
+              if (driveSig?.dataUrl) {
+                localStorage.setItem('workflow_user_signature', driveSig.dataUrl);
+                if (driveSig.viewUrl) {
+                  localStorage.setItem('workflow_user_signature_url', driveSig.viewUrl);
+                }
+                window.dispatchEvent(new Event('workflow_signature_updated'));
+              }
+            } catch (sigErr) {
+              console.warn('Could not auto-restore signature from Drive on login:', sigErr);
+            }
           } catch (err) {
             console.error('Failed to fetch user profile:', err);
           }
@@ -152,6 +167,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error initializing Google token client:', err);
     }
   }, [googleClientId]);
+
+  // Auto-restore signature from Drive on app load if user is logged in and not in local storage
+  useEffect(() => {
+    if (accessToken && user?.provider === 'google') {
+      const cached = localStorage.getItem('workflow_user_signature');
+      if (!cached) {
+        fetchUserSignatureFromDrive(accessToken, user.email, user.name)
+          .then(driveSig => {
+            if (driveSig?.dataUrl) {
+              localStorage.setItem('workflow_user_signature', driveSig.dataUrl);
+              if (driveSig.viewUrl) {
+                localStorage.setItem('workflow_user_signature_url', driveSig.viewUrl);
+              }
+              window.dispatchEvent(new Event('workflow_signature_updated'));
+            }
+          })
+          .catch(err => console.warn('Could not restore signature on mount:', err));
+      }
+    }
+  }, [accessToken, user]);
 
   // Connect or create user personal spreadsheet
   const connectUserSpreadsheet = async (token: string) => {

@@ -255,10 +255,10 @@ export const StatsModal: React.FC<StatsModalProps> = ({
         </div>
 
         {/* Filters Bar: Worksheets Selector & Time Range Selector */}
-        <div className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-6 py-3.5 space-y-3">
+        <div className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-3 space-y-2.5">
           {/* 1. Worksheet Selector Bar */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1 mr-1">
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto sm:flex-wrap pb-0.5 max-w-full">
+            <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1 mr-1 shrink-0">
               <FileSpreadsheet className={`w-3.5 h-3.5 ${accentConfig.textClass}`} />
               <span>{t.statsModal.filterSheetLabel}</span>
             </span>
@@ -268,7 +268,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({
               id="stats-sheet-filter-all"
               onClick={() => setSelectedSheetFilter('all')}
               style={selectedSheetFilter === 'all' ? { backgroundColor: accentConfig.hex } : undefined}
-              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+              className={`px-2.5 sm:px-3 py-1 rounded-xl text-xs font-bold transition-all shrink-0 ${
                 selectedSheetFilter === 'all'
                   ? `${accentConfig.activeTabClass}`
                   : 'bg-white text-black hover:bg-slate-100 border border-slate-300 dark:border-slate-700'
@@ -285,7 +285,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({
                 type="button"
                 id={`stats-sheet-filter-${sheet.replace(/\s+/g, '-').toLowerCase()}`}
                 onClick={() => setSelectedSheetFilter(sheet)}
-                className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                className={`px-2.5 sm:px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
                   selectedSheetFilter === sheet
                     ? `${accentConfig.activeTabClass}`
                     : 'bg-white text-black hover:bg-slate-100 border border-slate-300 dark:border-slate-700'
@@ -300,10 +300,10 @@ export const StatsModal: React.FC<StatsModalProps> = ({
           </div>
 
           {/* 2. Time Filters Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-200/60 dark:border-slate-800">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-slate-200/60 dark:border-slate-800">
             {/* Filter Buttons */}
-            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-              <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1 mr-1">
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto sm:flex-wrap pb-0.5 max-w-full">
+              <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1 mr-1 shrink-0">
                 <Filter className={`w-3.5 h-3.5 ${accentConfig.textClass}`} />
                 <span>{language === 'bn' ? 'সময়কাল:' : 'Range:'}</span>
               </span>
@@ -322,7 +322,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({
                   id={`filter-btn-${tab.id}`}
                   type="button"
                   onClick={() => setTimeRange(tab.id as TimeFilterRange)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs ${
+                  className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs shrink-0 ${
                     timeRange === tab.id
                       ? `${accentConfig.activeTabClass}`
                       : 'bg-white text-black hover:bg-slate-100 border border-slate-300 dark:border-slate-700'
@@ -337,7 +337,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({
             </div>
 
             {/* Active Records Count */}
-            <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
+            <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1 shrink-0">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               <span>
                 {stats.entriesCount} {t.preview.totalRecords}
@@ -374,7 +374,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/50 dark:bg-slate-950">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6 bg-slate-50/50 dark:bg-slate-950">
           {/* Active Range & Sheet Banner */}
           <div
             className={`flex flex-wrap items-center justify-between gap-2 p-3.5 rounded-2xl ${accentConfig.bgLight} border ${accentConfig.borderLight}`}

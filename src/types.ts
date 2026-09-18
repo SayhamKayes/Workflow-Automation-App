@@ -1,4 +1,5 @@
 export type TimeFilterRange =
+  | 'all'
   | 'today'
   | 'week'
   | 'month'

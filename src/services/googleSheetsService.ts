@@ -962,9 +962,20 @@ export async function fetchSpreadsheetData(
 
       rows.forEach((r, rowIdx) => {
         if (!r || r.length === 0 || !r[1]) return; // Skip empty rows or rows without date
+        // Skip header rows if present
+        if (String(r[0]).toLowerCase().includes('record') || String(r[1]).toLowerCase() === 'date') return;
+
+        // Normalize date to YYYY-MM-DD
+        let rawDate = String(r[1] || '').trim();
+        const slashMatch = rawDate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (slashMatch) {
+          const [, m, day, y] = slashMatch;
+          rawDate = `${y}-${m.padStart(2, '0')}-${day.padStart(2, '0')}`;
+        }
+
         loadedItems.push({
           id: String(r[0] || `item_${Date.now()}_${idx}_${rowIdx}`),
-          date: String(r[1] || ''),
+          date: rawDate,
           workHours: String(r[2] ?? '0'),
           work1: String(r[3] || ''),
           work2: String(r[4] || ''),
@@ -972,7 +983,7 @@ export async function fetchSpreadsheetData(
           work4: String(r[6] || ''),
           workDueHours: String(r[7] ?? '0'),
           signature: r[8] && String(r[8]).includes('Signed') ? 'attached' : '',
-          sheetName: String(r[9] || sheetName),
+          sheetName: sheetName, // Always associate the entry with its containing worksheet tab
           submittedAt: String(r[10] || ''),
         });
       });

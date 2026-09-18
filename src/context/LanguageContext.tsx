@@ -150,6 +150,7 @@ export interface Translations {
   statsModal: {
     title: string;
     subtitle: string;
+    rangeAll: string;
     rangeToday: string;
     rangeWeek: string;
     rangeMonth: string;
@@ -390,6 +391,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     statsModal: {
       title: 'Workflow Analytics & Hours Report',
       subtitle: 'Comprehensive performance breakdown across worksheets and time ranges',
+      rangeAll: 'All Time',
       rangeToday: 'Today',
       rangeWeek: 'This Week',
       rangeMonth: 'This Month',
@@ -628,6 +630,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     statsModal: {
       title: 'ওয়ার্কফ্লো অ্যানালিটিক্স ও সময় বিবরণী',
       subtitle: 'বিভিন্ন সময় ও ওয়ার্কশিট অনুযায়ী বিস্তারিত কাজের ঘণ্টার বিশ্লেষণ',
+      rangeAll: 'সব সময়',
       rangeToday: 'আজকের দিন',
       rangeWeek: 'চলতি সপ্তাহ',
       rangeMonth: 'চলতি মাস',

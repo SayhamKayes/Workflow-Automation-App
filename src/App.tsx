@@ -78,27 +78,46 @@ function getFallbackWorkflowItems(userId: string): WorkflowItem[] {
 
 // Helper to safely get worksheets
 function getFallbackWorksheets(userId: string): string[] {
+  const fallbackSheets = new Set<string>();
+  fallbackSheets.add(DEFAULT_WORKSHEET_NAME);
+
+  // 1. Check user sheets storage
   try {
     const userSheets = localStorage.getItem(`workflow_sheets_${userId}`);
     if (userSheets) {
       const parsed = JSON.parse(userSheets);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map((s: string) => (s === 'Home Works' ? DEFAULT_WORKSHEET_NAME : s));
+      if (Array.isArray(parsed)) {
+        parsed.forEach((s: string) => {
+          if (s) fallbackSheets.add(s === 'Home Works' ? DEFAULT_WORKSHEET_NAME : s);
+        });
       }
     }
+  } catch {}
+
+  // 2. Check legacy sheets storage
+  try {
     const legacySheets =
       localStorage.getItem('workflow_sheets_user_sayham_admin') ||
       localStorage.getItem('workflow_worksheets');
     if (legacySheets) {
       const parsed = JSON.parse(legacySheets);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map((s: string) => (s === 'Home Works' ? DEFAULT_WORKSHEET_NAME : s));
+      if (Array.isArray(parsed)) {
+        parsed.forEach((s: string) => {
+          if (s) fallbackSheets.add(s === 'Home Works' ? DEFAULT_WORKSHEET_NAME : s);
+        });
       }
     }
-  } catch (e) {
-    console.error('Failed to get fallback worksheets', e);
-  }
-  return [DEFAULT_WORKSHEET_NAME];
+  } catch {}
+
+  // 3. Extract any sheets attached to existing items!
+  const items = getFallbackWorkflowItems(userId);
+  items.forEach(i => {
+    if (i.sheetName) {
+      fallbackSheets.add(i.sheetName === 'Home Works' ? DEFAULT_WORKSHEET_NAME : i.sheetName);
+    }
+  });
+
+  return Array.from(fallbackSheets);
 }
 
 function AppContent() {
@@ -118,14 +137,24 @@ function AppContent() {
 
   const [items, setItems] = useState<WorkflowItem[]>(() => getFallbackWorkflowItems(user.id));
 
-  // Multiple worksheets list (defaults to ['Untitled Worksheet'])
+  // Multiple worksheets list (defaults to ['Untitled Worksheet'] or extracted from items)
   const [worksheets, setWorksheets] = useState<string[]>(() => getFallbackWorksheets(user.id));
 
   // Currently active worksheet
   const [activeSheet, setActiveSheet] = useState<string>(() => {
     const saved = localStorage.getItem(userActiveSheetKey);
-    if (saved === 'Home Works' || !saved) return DEFAULT_WORKSHEET_NAME;
-    return saved;
+    const sheets = getFallbackWorksheets(user.id);
+    const initialItems = getFallbackWorkflowItems(user.id);
+
+    if (saved && saved !== 'Home Works' && sheets.includes(saved)) {
+      return saved;
+    }
+
+    // Automatically select the first worksheet that actually has items!
+    const sheetWithItems = sheets.find(s =>
+      initialItems.some(i => (i.sheetName || DEFAULT_WORKSHEET_NAME) === s)
+    );
+    return sheetWithItems || sheets[0] || DEFAULT_WORKSHEET_NAME;
   });
 
   const itemsRef = useRef(items);
@@ -163,12 +192,28 @@ function AppContent() {
       setWorksheets(loadedSheets);
 
       const savedActive = localStorage.getItem(userActiveSheetKey);
-      const chosenActive = savedActive === 'Home Works' || !savedActive ? DEFAULT_WORKSHEET_NAME : savedActive;
-      setActiveSheet(loadedSheets.includes(chosenActive) ? chosenActive : loadedSheets[0]);
+      const chosenActive = savedActive === 'Home Works' || !savedActive ? '' : savedActive;
+      if (chosenActive && loadedSheets.includes(chosenActive)) {
+        setActiveSheet(chosenActive);
+      } else {
+        const sheetWithItems = loadedSheets.find(s =>
+          loadedItems.some(i => (i.sheetName || DEFAULT_WORKSHEET_NAME) === s)
+        );
+        setActiveSheet(sheetWithItems || loadedSheets[0] || DEFAULT_WORKSHEET_NAME);
+      }
     } catch (e) {
       console.error('Error switching user storage partition', e);
     }
   }, [user.id, userItemsKey, userSheetsKey, userActiveSheetKey]);
+
+  // Keep worksheets in sync whenever items contain any new worksheet name
+  useEffect(() => {
+    const itemSheets = items.map(i => i.sheetName || DEFAULT_WORKSHEET_NAME).filter(Boolean);
+    const combined = Array.from(new Set([...worksheets, ...itemSheets]));
+    if (combined.length > worksheets.length) {
+      setWorksheets(combined);
+    }
+  }, [items, worksheets]);
 
   // When Google Account is connected with a personal spreadsheet, load real-time sheets & rows from Google Sheets
   useEffect(() => {
@@ -177,9 +222,18 @@ function AppContent() {
       fetchSpreadsheetData(accessToken, spreadsheetInfo.id).then(async data => {
         if (!isMounted || !data) return;
 
-        // 1. Sync Worksheets: keep Google Sheet tabs and local tabs merged
-        if (data.worksheets && data.worksheets.length > 0) {
-          const mergedSheets = Array.from(new Set([...data.worksheets, ...worksheetsRef.current]));
+        // 1. Combine worksheets from Google Sheet tabs + item sheetNames + local tabs
+        const currentLocalItems = itemsRef.current;
+        const allItemsCombined =
+          data.items && data.items.length > 0
+            ? [...data.items, ...currentLocalItems]
+            : currentLocalItems;
+        const itemSheets = allItemsCombined.map(i => i.sheetName || DEFAULT_WORKSHEET_NAME).filter(Boolean);
+        const mergedSheets = Array.from(
+          new Set([...(data.worksheets || []), ...itemSheets, ...worksheetsRef.current])
+        );
+
+        if (mergedSheets.length > 0) {
           setWorksheets(mergedSheets);
           try {
             localStorage.setItem(userSheetsKey, JSON.stringify(mergedSheets));
@@ -188,8 +242,19 @@ function AppContent() {
           }
 
           setActiveSheet(current => {
-            if (mergedSheets.includes(current)) return current;
-            return mergedSheets[0];
+            const hasItemsInCurrent = allItemsCombined.some(
+              i => (i.sheetName || DEFAULT_WORKSHEET_NAME) === current
+            );
+            if (current && current !== DEFAULT_WORKSHEET_NAME && mergedSheets.includes(current) && hasItemsInCurrent) {
+              return current;
+            }
+            if (hasItemsInCurrent) {
+              return current;
+            }
+            const sheetWithItems = mergedSheets.find(s =>
+              allItemsCombined.some(i => (i.sheetName || DEFAULT_WORKSHEET_NAME) === s)
+            );
+            return sheetWithItems || mergedSheets[0] || DEFAULT_WORKSHEET_NAME;
           });
         }
 

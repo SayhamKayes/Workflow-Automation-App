@@ -35,8 +35,14 @@ export const StatsModal: React.FC<StatsModalProps> = ({
   const { language, t } = useLanguage();
   const { accentConfig } = useTheme();
 
-  const [timeRange, setTimeRange] = useState<TimeFilterRange>('today');
+  const [timeRange, setTimeRange] = useState<TimeFilterRange>('all');
   const [selectedSheetFilter, setSelectedSheetFilter] = useState<string>('all');
+
+  // Derive complete list of worksheets from both prop and items
+  const allWorksheets = useMemo(() => {
+    const itemSheets = items.map(i => i.sheetName || 'Untitled Worksheet').filter(Boolean);
+    return Array.from(new Set([...worksheets, ...itemSheets]));
+  }, [worksheets, items]);
 
   // Custom range dates
   const [customStartDate, setCustomStartDate] = useState(() => {
@@ -65,6 +71,10 @@ export const StatsModal: React.FC<StatsModalProps> = ({
       }
 
       // 2. Time Range Filter
+      if (timeRange === 'all') {
+        return true;
+      }
+
       if (timeRange === 'today') {
         return item.date === todayStr;
       }
@@ -269,7 +279,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({
               </span>
             </button>
 
-            {worksheets.map(sheet => (
+            {allWorksheets.map(sheet => (
               <button
                 key={sheet}
                 type="button"
@@ -299,6 +309,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({
               </span>
 
               {[
+                { id: 'all', label: t.statsModal.rangeAll, icon: '🌐' },
                 { id: 'today', label: t.statsModal.rangeToday, icon: '⚡' },
                 { id: 'week', label: t.statsModal.rangeWeek, icon: '📅' },
                 { id: 'month', label: t.statsModal.rangeMonth, icon: '🗓️' },

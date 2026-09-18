@@ -149,19 +149,18 @@ export async function initSheetHeaders(
     const sheetId = sheetObj.properties.sheetId;
 
     // 3. Apply header styling, column alignments, comfortable widths, and freeze row 1
-    // Work 1, Work 2, Work 3, Work 4 all have the exact same generous width (280px)
     const columnWidthRequests = [
-      { index: 0, width: 160 }, // Record ID
-      { index: 1, width: 120 }, // Date
-      { index: 2, width: 140 }, // Work Hours (hrs)
-      { index: 3, width: 280 }, // Work 1 (Mandatory)
-      { index: 4, width: 280 }, // Work 2
-      { index: 5, width: 280 }, // Work 3
-      { index: 6, width: 280 }, // Work 4
-      { index: 7, width: 130 }, // Due Hours (hrs)
-      { index: 8, width: 120 }, // Signature
-      { index: 9, width: 130 }, // Worksheet
-      { index: 10, width: 180 }, // Submitted At
+      { index: 0, width: 130 }, // Record ID
+      { index: 1, width: 115 }, // Date
+      { index: 2, width: 135 }, // Work Hours (hrs)
+      { index: 3, width: 260 }, // Work 1 (Mandatory)
+      { index: 4, width: 210 }, // Work 2
+      { index: 5, width: 210 }, // Work 3
+      { index: 6, width: 210 }, // Work 4
+      { index: 7, width: 135 }, // Due Hours (hrs)
+      { index: 8, width: 125 }, // Signature
+      { index: 9, width: 140 }, // Worksheet
+      { index: 10, width: 170 }, // Submitted At
     ].map(col => ({
       updateDimensionProperties: {
         range: {
@@ -287,8 +286,19 @@ export async function initSheetHeaders(
                 fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment)',
               },
             },
-            // F. Set generous, equal widths for all columns (Work 1-4 are 280px)
+            // F. Set comfortable initial widths
             ...columnWidthRequests,
+            // G. Auto-resize all columns based on content
+            {
+              autoResizeDimensions: {
+                dimensions: {
+                  sheetId,
+                  dimension: 'COLUMNS',
+                  startIndex: 0,
+                  endIndex: 11,
+                },
+              },
+            },
           ],
         }),
       }
@@ -491,8 +501,8 @@ export async function appendWorkflowRowToSheet(
     );
 
     if (response.ok) {
-      // Enforce equal 280px column widths and alignments in the background
-      triggerSheetFormattingAndWidths(accessToken, spreadsheetId, sheetName).catch(() => {});
+      // Auto-fit column widths and ensure alignment asynchronously in the background
+      triggerAutoResizeAndFormatting(accessToken, spreadsheetId, sheetName).catch(() => {});
     }
 
     return response.ok;
@@ -503,9 +513,9 @@ export async function appendWorkflowRowToSheet(
 }
 
 /**
- * Asynchronously enforces generous equal column widths (280px for tasks) and clean alignments to the sheet.
+ * Asynchronously auto-resizes columns and applies clean alignments to the sheet.
  */
-export async function triggerSheetFormattingAndWidths(
+async function triggerAutoResizeAndFormatting(
   accessToken: string,
   spreadsheetId: string,
   sheetName: string
@@ -525,33 +535,6 @@ export async function triggerSheetFormattingAndWidths(
     if (!sheetObj || sheetObj.properties?.sheetId === undefined) return;
     const sheetId = sheetObj.properties.sheetId;
 
-    const columnWidthRequests = [
-      { index: 0, width: 160 }, // Record ID
-      { index: 1, width: 120 }, // Date
-      { index: 2, width: 140 }, // Work Hours (hrs)
-      { index: 3, width: 280 }, // Work 1 (Mandatory)
-      { index: 4, width: 280 }, // Work 2
-      { index: 5, width: 280 }, // Work 3
-      { index: 6, width: 280 }, // Work 4
-      { index: 7, width: 130 }, // Due Hours (hrs)
-      { index: 8, width: 120 }, // Signature
-      { index: 9, width: 130 }, // Worksheet
-      { index: 10, width: 180 }, // Submitted At
-    ].map(col => ({
-      updateDimensionProperties: {
-        range: {
-          sheetId,
-          dimension: 'COLUMNS',
-          startIndex: col.index,
-          endIndex: col.index + 1,
-        },
-        properties: {
-          pixelSize: col.width,
-        },
-        fields: 'pixelSize',
-      },
-    }));
-
     await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
       {
@@ -562,8 +545,17 @@ export async function triggerSheetFormattingAndWidths(
         },
         body: JSON.stringify({
           requests: [
-            // 1. Enforce generous, equal column widths for all columns (Work 1-4 are 280px)
-            ...columnWidthRequests,
+            // 1. Auto-resize all 11 columns to fit their longest content
+            {
+              autoResizeDimensions: {
+                dimensions: {
+                  sheetId,
+                  dimension: 'COLUMNS',
+                  startIndex: 0,
+                  endIndex: 11,
+                },
+              },
+            },
             // 2. Align task description columns (Work 1, Work 2, Work 3, Work 4) to the LEFT with wrap
             {
               repeatCell: {
@@ -624,6 +616,6 @@ export async function triggerSheetFormattingAndWidths(
       }
     );
   } catch (err) {
-    console.warn('Could not enforce sheet formatting and column widths:', err);
+    console.warn('Could not auto-resize/format sheet columns:', err);
   }
 }

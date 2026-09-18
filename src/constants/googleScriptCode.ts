@@ -184,16 +184,10 @@ function doPost(e) {
     taskRange.setWrap(true);
     sheet.getRange(newEntryRowIndex, 7, 1, 3).setHorizontalAlignment("center");
 
-    // কলাম উইডথ সেট করা: কাজ ১ থেকে ৪ একই সুন্দর সমান চওড়া সাইজ (২৮০px)
-    sheet.setColumnWidth(1, 120); // Date
-    sheet.setColumnWidth(2, 140); // Work Hours
-    sheet.setColumnWidth(3, 280); // Work 1
-    sheet.setColumnWidth(4, 280); // Work 2
-    sheet.setColumnWidth(5, 280); // Work 3
-    sheet.setColumnWidth(6, 280); // Work 4
-    sheet.setColumnWidth(7, 130); // Due Hours
-    sheet.setColumnWidth(8, 120); // Signature
-    sheet.setColumnWidth(9, 180); // Submitted At
+    // অটো-ফিট কলাম উইডথ
+    for (let col = 1; col <= dataRow.length; col++) {
+      sheet.autoResizeColumn(col);
+    }
 
     return createJsonResponse({
       status: "success",

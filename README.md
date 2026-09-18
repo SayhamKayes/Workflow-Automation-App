@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="LogCrafter.png" alt="LogCrafter Banner" width="800" />
+  <img src="/public/LogCrafter.png" alt="LogCrafter Logo" width="800" />
 
   <h1 align="center">LogCrafter</h1>
 

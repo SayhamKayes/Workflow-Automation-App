@@ -785,7 +785,7 @@ export const WorkVisualOverview: React.FC<WorkVisualOverviewProps> = ({
             </div>
 
             {/* Time Range Pills */}
-            <div className="inline-flex rounded-xl bg-slate-200/80 dark:bg-slate-700/70 p-0.5 text-xs font-semibold">
+            <div className="inline-flex flex-wrap rounded-xl bg-slate-200/80 dark:bg-slate-700/70 p-0.5 text-xs font-semibold max-w-full">
               <button
                 type="button"
                 onClick={() => setTimelineFilter('month')}
@@ -867,6 +867,14 @@ export const WorkVisualOverview: React.FC<WorkVisualOverviewProps> = ({
                     Today
                   </span>
                 )}
+                {/* Dismiss button for mobile touch */}
+                <button
+                  type="button"
+                  onClick={() => setHoveredBarIndex(null)}
+                  className="sm:hidden text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 ml-1"
+                >
+                  ✕
+                </button>
               </div>
               <div className="flex items-center gap-4 text-xs font-semibold">
                 <span className="flex items-center gap-1">
@@ -906,8 +914,8 @@ export const WorkVisualOverview: React.FC<WorkVisualOverviewProps> = ({
             <div className="flex items-center justify-between w-full text-slate-500 dark:text-slate-400 text-[11px]">
               <span>
                 {language === 'bn'
-                  ? 'বার-এর ওপর মাউস আনলে বিস্তারিত তথ্য প্রদর্শিত হবে'
-                  : 'Hover over any bar on the timeline to inspect daily hours, due hours and task output'}
+                  ? 'বার-এ ট্যাপ বা মাউস আনলে বিস্তারিত তথ্য প্রদর্শিত হবে'
+                  : 'Tap or hover over any bar on the timeline to inspect daily hours'}
               </span>
               <div className="flex items-center gap-3">
                 <span className="flex items-center gap-1">
@@ -924,6 +932,21 @@ export const WorkVisualOverview: React.FC<WorkVisualOverviewProps> = ({
               </div>
             </div>
           )}
+        </div>
+
+        {/* Mobile Horizontal Swipe Instruction Hint */}
+        <div className="sm:hidden flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500 px-1 pt-1">
+          <span className="flex items-center gap-1 font-medium">
+            <span>↔</span>
+            <span>
+              {language === 'bn'
+                ? 'ডানে-বামে সোয়াইপ করে পুরো মাসের ডেটা দেখুন'
+                : 'Swipe horizontally to view full month'}
+            </span>
+          </span>
+          <span className="text-[10px] text-slate-400">
+            {timelineData.length} {language === 'bn' ? 'দিন' : 'days'}
+          </span>
         </div>
 
         {/* Vector SVG Bar Chart */}
@@ -1022,6 +1045,8 @@ export const WorkVisualOverview: React.FC<WorkVisualOverviewProps> = ({
                     className="cursor-pointer transition-all duration-200"
                     onMouseEnter={() => setHoveredBarIndex(index)}
                     onMouseLeave={() => setHoveredBarIndex(null)}
+                    onClick={() => setHoveredBarIndex(prev => (prev === index ? null : index))}
+                    onTouchStart={() => setHoveredBarIndex(index)}
                   >
                     {/* Hover vertical guide line */}
                     {isHovered && (

@@ -148,7 +148,34 @@ export async function initSheetHeaders(
     if (!sheetObj || sheetObj.properties?.sheetId === undefined) return;
     const sheetId = sheetObj.properties.sheetId;
 
-    // 3. Apply header styling: Bold, White text, Sleek Dark Navy Background, Centered, Freeze row 1
+    // 3. Apply header styling, column alignments, comfortable widths, and freeze row 1
+    const columnWidthRequests = [
+      { index: 0, width: 130 }, // Record ID
+      { index: 1, width: 115 }, // Date
+      { index: 2, width: 135 }, // Work Hours (hrs)
+      { index: 3, width: 260 }, // Work 1 (Mandatory)
+      { index: 4, width: 210 }, // Work 2
+      { index: 5, width: 210 }, // Work 3
+      { index: 6, width: 210 }, // Work 4
+      { index: 7, width: 135 }, // Due Hours (hrs)
+      { index: 8, width: 125 }, // Signature
+      { index: 9, width: 140 }, // Worksheet
+      { index: 10, width: 170 }, // Submitted At
+    ].map(col => ({
+      updateDimensionProperties: {
+        range: {
+          sheetId,
+          dimension: 'COLUMNS',
+          startIndex: col.index,
+          endIndex: col.index + 1,
+        },
+        properties: {
+          pixelSize: col.width,
+        },
+        fields: 'pixelSize',
+      },
+    }));
+
     await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
       {
@@ -159,6 +186,7 @@ export async function initSheetHeaders(
         },
         body: JSON.stringify({
           requests: [
+            // A. Header Row Styling (Row 0): Bold, White text, Navy Background, Centered
             {
               repeatCell: {
                 range: {
@@ -191,6 +219,7 @@ export async function initSheetHeaders(
                 fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)',
               },
             },
+            // B. Freeze Row 1 so it stays fixed while scrolling
             {
               updateSheetProperties: {
                 properties: {
@@ -200,6 +229,74 @@ export async function initSheetHeaders(
                   },
                 },
                 fields: 'gridProperties.frozenRowCount',
+              },
+            },
+            // C. Task Columns (Work 1 to 4): Left aligned with text wrapping
+            {
+              repeatCell: {
+                range: {
+                  sheetId,
+                  startRowIndex: 1,
+                  startColumnIndex: 3,
+                  endColumnIndex: 7,
+                },
+                cell: {
+                  userEnteredFormat: {
+                    horizontalAlignment: 'LEFT',
+                    verticalAlignment: 'MIDDLE',
+                    wrapStrategy: 'WRAP',
+                  },
+                },
+                fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment,wrapStrategy)',
+              },
+            },
+            // D. Center alignment for Record ID, Date, Work Hours
+            {
+              repeatCell: {
+                range: {
+                  sheetId,
+                  startRowIndex: 1,
+                  startColumnIndex: 0,
+                  endColumnIndex: 3,
+                },
+                cell: {
+                  userEnteredFormat: {
+                    horizontalAlignment: 'CENTER',
+                    verticalAlignment: 'MIDDLE',
+                  },
+                },
+                fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment)',
+              },
+            },
+            // E. Center alignment for Due Hours, Signature, Worksheet, Submitted At
+            {
+              repeatCell: {
+                range: {
+                  sheetId,
+                  startRowIndex: 1,
+                  startColumnIndex: 7,
+                  endColumnIndex: 11,
+                },
+                cell: {
+                  userEnteredFormat: {
+                    horizontalAlignment: 'CENTER',
+                    verticalAlignment: 'MIDDLE',
+                  },
+                },
+                fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment)',
+              },
+            },
+            // F. Set comfortable initial widths
+            ...columnWidthRequests,
+            // G. Auto-resize all columns based on content
+            {
+              autoResizeDimensions: {
+                dimensions: {
+                  sheetId,
+                  dimension: 'COLUMNS',
+                  startIndex: 0,
+                  endIndex: 11,
+                },
               },
             },
           ],
@@ -403,9 +500,122 @@ export async function appendWorkflowRowToSheet(
       }
     );
 
+    if (response.ok) {
+      // Auto-fit column widths and ensure alignment asynchronously in the background
+      triggerAutoResizeAndFormatting(accessToken, spreadsheetId, sheetName).catch(() => {});
+    }
+
     return response.ok;
   } catch (err) {
     console.error('Failed to append row to user Google Sheet:', err);
     return false;
+  }
+}
+
+/**
+ * Asynchronously auto-resizes columns and applies clean alignments to the sheet.
+ */
+async function triggerAutoResizeAndFormatting(
+  accessToken: string,
+  spreadsheetId: string,
+  sheetName: string
+): Promise<void> {
+  try {
+    const metaRes = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+    if (!metaRes.ok) return;
+    const metaData = await metaRes.json();
+    const sheetObj = metaData.sheets?.find(
+      (s: { properties?: { title?: string; sheetId?: number } }) => s.properties?.title === sheetName
+    );
+    if (!sheetObj || sheetObj.properties?.sheetId === undefined) return;
+    const sheetId = sheetObj.properties.sheetId;
+
+    await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          requests: [
+            // 1. Auto-resize all 11 columns to fit their longest content
+            {
+              autoResizeDimensions: {
+                dimensions: {
+                  sheetId,
+                  dimension: 'COLUMNS',
+                  startIndex: 0,
+                  endIndex: 11,
+                },
+              },
+            },
+            // 2. Align task description columns (Work 1, Work 2, Work 3, Work 4) to the LEFT with wrap
+            {
+              repeatCell: {
+                range: {
+                  sheetId,
+                  startRowIndex: 1,
+                  startColumnIndex: 3,
+                  endColumnIndex: 7,
+                },
+                cell: {
+                  userEnteredFormat: {
+                    horizontalAlignment: 'LEFT',
+                    verticalAlignment: 'MIDDLE',
+                    wrapStrategy: 'WRAP',
+                  },
+                },
+                fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment,wrapStrategy)',
+              },
+            },
+            // 3. Align Date, Work Hours to CENTER
+            {
+              repeatCell: {
+                range: {
+                  sheetId,
+                  startRowIndex: 1,
+                  startColumnIndex: 0,
+                  endColumnIndex: 3,
+                },
+                cell: {
+                  userEnteredFormat: {
+                    horizontalAlignment: 'CENTER',
+                    verticalAlignment: 'MIDDLE',
+                  },
+                },
+                fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment)',
+              },
+            },
+            // 4. Align Due Hours, Signature, Worksheet, Submitted At to CENTER
+            {
+              repeatCell: {
+                range: {
+                  sheetId,
+                  startRowIndex: 1,
+                  startColumnIndex: 7,
+                  endColumnIndex: 11,
+                },
+                cell: {
+                  userEnteredFormat: {
+                    horizontalAlignment: 'CENTER',
+                    verticalAlignment: 'MIDDLE',
+                  },
+                },
+                fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment)',
+              },
+            },
+          ],
+        }),
+      }
+    );
+  } catch (err) {
+    console.warn('Could not auto-resize/format sheet columns:', err);
   }
 }

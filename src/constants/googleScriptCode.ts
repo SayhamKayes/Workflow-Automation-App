@@ -177,6 +177,13 @@ function doPost(e) {
       newRowRange.setBackground("#F8FAFC");
     }
 
+    // নির্দিষ্ট কলামের অ্যালাইনমেন্ট: Date ও Work Hours সেন্টার, কাজগুলো বামে, বাকিগুলো সেন্টার
+    sheet.getRange(newEntryRowIndex, 1, 1, 2).setHorizontalAlignment("center");
+    const taskRange = sheet.getRange(newEntryRowIndex, 3, 1, 4);
+    taskRange.setHorizontalAlignment("left");
+    taskRange.setWrap(true);
+    sheet.getRange(newEntryRowIndex, 7, 1, 3).setHorizontalAlignment("center");
+
     // অটো-ফিট কলাম উইডথ
     for (let col = 1; col <= dataRow.length; col++) {
       sheet.autoResizeColumn(col);

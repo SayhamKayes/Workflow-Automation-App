@@ -1,10 +1,10 @@
 <div align="center">
-  <img src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" alt="Dynamic Workflow Automation App Banner" width="800" />
+  <img src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" alt="LogCrafter Banner" width="800" />
 
-  <h1 align="center">Dynamic Workflow Automation App</h1>
+  <h1 align="center">LogCrafter</h1>
 
   <p align="center">
-    A modern, bilingual web application for seamless workflow management and automated tracking using React, TailwindCSS, and Google Sheets integration.
+    A modern, bilingual task logging and workflow management web application with seamless Google Sheets integration, automated monthly headers, and voice input.
   </p>
   
   <p align="center">
@@ -20,7 +20,7 @@
 
 ## 🌟 Overview
 
-The **Dynamic Workflow Automation App** is a fast, responsive, and beautifully designed productivity tool. It helps users log daily workflows, track tasks across multiple sheets, view real-time statistics, and seamlessly synchronize all this data with Google Sheets via a Google Apps Script Web App. 
+The **LogCrafter** is a fast, responsive, and beautifully designed productivity tool. It helps users log daily workflows, track tasks across multiple sheets, view real-time statistics, and seamlessly synchronize all this data with Google Sheets via a Google Apps Script Web App. 
 
 With built-in **bilingual support** (English and Bengali) and **dynamic theming** (Light/Dark mode), this app caters to a diverse user base while offering an exceptionally premium and intuitive user experience.
 

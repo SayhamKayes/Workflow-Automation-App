@@ -45,6 +45,32 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
     ctx.strokeStyle = theme === 'dark' ? '#f8fafc' : '#1e293b';
   }, [activeTab, theme]);
 
+  const getCoordinates = (
+    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
+    canvas: HTMLCanvasElement
+  ) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = rect.width > 0 ? canvas.width / rect.width : 1;
+    const scaleY = rect.height > 0 ? canvas.height / rect.height : 1;
+    const clientX =
+      'touches' in e && e.touches.length > 0
+        ? e.touches[0].clientX
+        : 'clientX' in e
+        ? e.clientX
+        : 0;
+    const clientY =
+      'touches' in e && e.touches.length > 0
+        ? e.touches[0].clientY
+        : 'clientY' in e
+        ? e.clientY
+        : 0;
+
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
+  };
+
   const startDrawing = (
     e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
   ) => {
@@ -56,12 +82,9 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
     setIsDrawing(true);
     setHasDrawn(true);
 
-    const rect = canvas.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-
+    const { x, y } = getCoordinates(e, canvas);
     ctx.beginPath();
-    ctx.moveTo(clientX - rect.left, clientY - rect.top);
+    ctx.moveTo(x, y);
   };
 
   const draw = (
@@ -73,11 +96,8 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-
-    ctx.lineTo(clientX - rect.left, clientY - rect.top);
+    const { x, y } = getCoordinates(e, canvas);
+    ctx.lineTo(x, y);
     ctx.stroke();
   };
 

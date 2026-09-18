@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback, useId } from 'react';
 import {
   PieChart as PieIcon,
   TrendingUp,
@@ -52,6 +52,12 @@ export const WorkVisualOverview: React.FC<WorkVisualOverviewProps> = ({
 }) => {
   const { language, t } = useLanguage();
   const { accentConfig } = useTheme();
+
+  // Generate unique IDs for SVG gradients so mobile & desktop instances never conflict
+  const rawId = useId();
+  const uniqueId = rawId.replace(/[^a-zA-Z0-9]/g, '');
+  const accentGradId = `barAccentGrad_${uniqueId}`;
+  const amberGradId = `barAmberGrad_${uniqueId}`;
 
   // Timeline bar chart interactive states
   const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>('month');
@@ -406,6 +412,50 @@ export const WorkVisualOverview: React.FC<WorkVisualOverviewProps> = ({
 
   const activeHoveredBar =
     hoveredBarIndex !== null ? timelineData[hoveredBarIndex] : null;
+
+  // Ref for the horizontal scroll container
+  const timelineScrollRef = useRef<HTMLDivElement>(null);
+
+  // Scroll smoothly to today's bar, or peak bar, or latest active bar with work
+  const scrollToActiveBar = useCallback(() => {
+    if (!timelineScrollRef.current) return;
+    const container = timelineScrollRef.current;
+
+    let targetIndex = timelineData.findIndex(b => b.isToday);
+    if (targetIndex === -1 && peakBar) {
+      targetIndex = timelineData.findIndex(b => b.id === peakBar.id);
+    }
+    if (targetIndex === -1) {
+      for (let i = timelineData.length - 1; i >= 0; i--) {
+        if (timelineData[i].workHours > 0 || timelineData[i].dueHours > 0) {
+          targetIndex = i;
+          break;
+        }
+      }
+    }
+
+    if (targetIndex !== -1 && timelineData.length > 0) {
+      const targetCenterX = chartLeft + (targetIndex + 0.5) * barSlotWidth;
+      const svgWidth = chartWidth + chartLeft + 20;
+      const containerWidth = container.clientWidth;
+      const scrollWidth = container.scrollWidth;
+      const ratio = scrollWidth / svgWidth;
+      const scrollPos = targetCenterX * ratio - containerWidth / 2;
+
+      container.scrollTo({
+        left: Math.max(0, scrollPos),
+        behavior: 'smooth',
+      });
+    }
+  }, [timelineData, peakBar, barSlotWidth, chartLeft, chartWidth]);
+
+  // Automatically scroll to active / today's bar on initial load or filter/scope switch
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      scrollToActiveBar();
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [scrollToActiveBar, timelineFilter, timelineScope]);
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 sm:p-7 shadow-lg transition-all duration-300 relative overflow-hidden space-y-6">
@@ -934,7 +984,7 @@ export const WorkVisualOverview: React.FC<WorkVisualOverviewProps> = ({
           )}
         </div>
 
-        {/* Mobile Horizontal Swipe Instruction Hint */}
+        {/* Mobile Horizontal Swipe Instruction Hint & Jump to Today Button */}
         <div className="sm:hidden flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500 px-1 pt-1">
           <span className="flex items-center gap-1 font-medium">
             <span>↔</span>
@@ -944,29 +994,43 @@ export const WorkVisualOverview: React.FC<WorkVisualOverviewProps> = ({
                 : 'Swipe horizontally to view full month'}
             </span>
           </span>
-          <span className="text-[10px] text-slate-400">
-            {timelineData.length} {language === 'bn' ? 'দিন' : 'days'}
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={scrollToActiveBar}
+              className="px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 font-bold border border-indigo-200/50 dark:border-indigo-800/50 text-[10px] active:scale-95 transition-all cursor-pointer shadow-2xs"
+            >
+              {language === 'bn' ? 'আজকের দিন 📍' : 'Today 📍'}
+            </button>
+            <span className="text-[10px] text-slate-400">
+              {timelineData.length} {language === 'bn' ? 'দিন' : 'days'}
+            </span>
+          </div>
         </div>
 
         {/* Vector SVG Bar Chart */}
-        <div className="w-full overflow-x-auto pt-1 pb-1">
-          <div className="min-w-[650px] sm:min-w-full">
+        <div
+          ref={timelineScrollRef}
+          className="w-full overflow-x-auto pt-1 pb-1 touch-pan-x scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+          <div className={timelineData.length > 12 ? 'min-w-[860px] sm:min-w-full' : 'w-full'}>
             <svg
-              className="w-full h-56 select-none"
+              className="w-full h-56 select-none touch-pan-x"
+              style={{ touchAction: 'pan-x' }}
               viewBox={`0 0 ${chartWidth + chartLeft + 20} 240`}
             >
               <defs>
-                {/* Accent Gradient for Logged Work */}
-                <linearGradient id="barAccentGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={accentConfig.hex} stopOpacity="0.95" />
-                  <stop offset="100%" stopColor={accentConfig.hex} stopOpacity="0.6" />
+                {/* Accent Gradient for Logged Work with Unique ID */}
+                <linearGradient id={accentGradId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={accentConfig.hex} stopOpacity="1" />
+                  <stop offset="100%" stopColor={accentConfig.hex} stopOpacity="0.75" />
                 </linearGradient>
 
-                {/* Amber Gradient for Due Hours */}
-                <linearGradient id="barAmberGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.95" />
-                  <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.6" />
+                {/* Amber Gradient for Due Hours with Unique ID */}
+                <linearGradient id={amberGradId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#f59e0b" stopOpacity="1" />
+                  <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.75" />
                 </linearGradient>
               </defs>
 
@@ -1024,14 +1088,14 @@ export const WorkVisualOverview: React.FC<WorkVisualOverviewProps> = ({
                 const centerX = chartLeft + (index + 0.5) * barSlotWidth;
                 const barX = centerX - barWidth / 2;
 
-                const workBarHeight = Math.max(
-                  0,
-                  (bar.workHours / maxHoursScale) * chartHeight
-                );
-                const dueBarHeight = Math.max(
-                  0,
-                  (bar.dueHours / maxHoursScale) * chartHeight
-                );
+                const workBarHeight =
+                  bar.workHours > 0
+                    ? Math.max(3, (bar.workHours / maxHoursScale) * chartHeight)
+                    : 0;
+                const dueBarHeight =
+                  bar.dueHours > 0
+                    ? Math.max(3, (bar.dueHours / maxHoursScale) * chartHeight)
+                    : 0;
 
                 const workBarY = chartBottom - workBarHeight;
                 const dueBarY = workBarY - dueBarHeight;
@@ -1046,8 +1110,19 @@ export const WorkVisualOverview: React.FC<WorkVisualOverviewProps> = ({
                     onMouseEnter={() => setHoveredBarIndex(index)}
                     onMouseLeave={() => setHoveredBarIndex(null)}
                     onClick={() => setHoveredBarIndex(prev => (prev === index ? null : index))}
-                    onTouchStart={() => setHoveredBarIndex(index)}
                   >
+                    {/* Hover / Tap column background highlight */}
+                    {isHovered && (
+                      <rect
+                        x={centerX - barSlotWidth / 2 + 1}
+                        y={chartTop}
+                        width={barSlotWidth - 2}
+                        height={chartHeight + 20}
+                        rx="4"
+                        className="fill-slate-400/15 dark:fill-slate-300/15"
+                      />
+                    )}
+
                     {/* Hover vertical guide line */}
                     {isHovered && (
                       <line
@@ -1069,7 +1144,8 @@ export const WorkVisualOverview: React.FC<WorkVisualOverviewProps> = ({
                         width={barWidth}
                         height={dueBarHeight}
                         rx="3"
-                        fill="url(#barAmberGrad)"
+                        fill={`url(#${amberGradId})`}
+                        style={{ fill: `url(#${amberGradId}) #f59e0b` }}
                         className={`transition-all duration-300 ${
                           isHovered ? 'brightness-110' : ''
                         }`}
@@ -1084,7 +1160,8 @@ export const WorkVisualOverview: React.FC<WorkVisualOverviewProps> = ({
                         width={barWidth}
                         height={workBarHeight}
                         rx="3"
-                        fill="url(#barAccentGrad)"
+                        fill={`url(#${accentGradId})`}
+                        style={{ fill: `url(#${accentGradId}) ${accentConfig.hex}` }}
                         stroke={isHovered ? '#ffffff' : 'transparent'}
                         strokeWidth={isHovered ? 1.5 : 0}
                         className={`transition-all duration-300 ${
@@ -1096,8 +1173,12 @@ export const WorkVisualOverview: React.FC<WorkVisualOverviewProps> = ({
                       <circle
                         cx={centerX}
                         y={chartBottom - 3}
-                        r="1.5"
-                        className="fill-slate-300 dark:fill-slate-700"
+                        r={isHovered ? 3.5 : 1.5}
+                        className={
+                          isHovered
+                            ? 'fill-indigo-500 dark:fill-indigo-400'
+                            : 'fill-slate-300 dark:fill-slate-700'
+                        }
                       />
                     )}
 
@@ -1133,13 +1214,20 @@ export const WorkVisualOverview: React.FC<WorkVisualOverviewProps> = ({
                       </text>
                     )}
 
-                    {/* Transparent overlay hitbox for easy hovering */}
+                    {/* Transparent overlay hitbox for easy mobile tapping and desktop hovering */}
                     <rect
                       x={centerX - barSlotWidth / 2}
                       y={chartTop}
                       width={barSlotWidth}
-                      height={chartHeight + 25}
-                      fill="transparent"
+                      height={chartHeight + 35}
+                      fill="rgba(0,0,0,0.001)"
+                      pointerEvents="all"
+                      style={{ pointerEvents: 'all', touchAction: 'pan-x' }}
+                      className="cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setHoveredBarIndex(prev => (prev === index ? null : index));
+                      }}
                     />
                   </g>
                 );

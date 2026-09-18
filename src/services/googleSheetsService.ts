@@ -11,13 +11,25 @@ export const DEFAULT_WORKSHEET_NAME = 'Untitled Worksheet';
 const APP_SPREADSHEET_NAME = 'LogCrafter - Workflow Database';
 
 /**
+ * Safely formats an A1 notation range for Google Sheets API.
+ * Sheet names with spaces or special characters MUST be wrapped in single quotes, e.g.:
+ * 'Untitled Worksheet'!A1:K1
+ */
+export function formatA1Range(sheetName: string, range?: string): string {
+  const safeSheetName = `'${(sheetName || DEFAULT_WORKSHEET_NAME).replace(/'/g, "''")}'`;
+  return range ? `${safeSheetName}!${range}` : safeSheetName;
+}
+
+/**
  * Searches user's Google Drive for an existing spreadsheet created for this app.
  */
 export async function findExistingSpreadsheet(accessToken: string): Promise<GoogleSpreadsheetInfo | null> {
   try {
-    const query = encodeURIComponent(`(name = '${APP_SPREADSHEET_NAME}' or name = 'Dynamic Workflow - Automation') and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false`);
+    const query = encodeURIComponent(
+      `(name contains 'LogCrafter' or name contains 'Workflow' or name = '${APP_SPREADSHEET_NAME}' or name = 'Dynamic Workflow - Automation') and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false`
+    );
     const response = await fetch(
-      `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,webViewLink)`,
+      `https://www.googleapis.com/drive/v3/files?q=${query}&orderBy=modifiedTime%20desc&fields=files(id,name,webViewLink)`,
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -36,7 +48,7 @@ export async function findExistingSpreadsheet(accessToken: string): Promise<Goog
       return {
         id: file.id,
         name: file.name,
-        url: file.webViewLink,
+        url: file.webViewLink || `https://docs.google.com/spreadsheets/d/${file.id}/edit`,
       };
     }
     return null;
@@ -121,8 +133,9 @@ export async function initSheetHeaders(
     ];
 
     // 1. Write Header Row values
+    const headerRange = formatA1Range(sheetName, 'A1:K1');
     await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!A1:K1?valueInputOption=USER_ENTERED`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(headerRange)}?valueInputOption=USER_ENTERED`,
       {
         method: 'PUT',
         headers: {
@@ -486,8 +499,9 @@ export async function appendWorkflowRowToSheet(
       item.submittedAt || new Date().toLocaleString(),
     ];
 
-    const response = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!A1:append?valueInputOption=USER_ENTERED`,
+    const rangeA1 = formatA1Range(sheetName, 'A1');
+    let response = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(rangeA1)}:append?valueInputOption=USER_ENTERED`,
       {
         method: 'POST',
         headers: {
@@ -500,6 +514,27 @@ export async function appendWorkflowRowToSheet(
       }
     );
 
+    // If tab doesn't exist yet, automatically create the tab and retry
+    if (!response.ok && response.status === 400) {
+      console.warn(`Tab '${sheetName}' might not exist. Creating tab and retrying append...`);
+      const created = await createWorksheetTab(accessToken, spreadsheetId, sheetName);
+      if (created) {
+        response = await fetch(
+          `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(rangeA1)}:append?valueInputOption=USER_ENTERED`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              values: [row],
+            }),
+          }
+        );
+      }
+    }
+
     if (response.ok) {
       // Auto-fit column widths and ensure alignment asynchronously in the background
       triggerAutoResizeAndFormatting(accessToken, spreadsheetId, sheetName).catch(() => {});
@@ -508,6 +543,87 @@ export async function appendWorkflowRowToSheet(
     return response.ok;
   } catch (err) {
     console.error('Failed to append row to user Google Sheet:', err);
+    return false;
+  }
+}
+
+/**
+ * Bulk appends workflow items grouped by worksheet tab into the Google Sheet.
+ * Used for initial sync when a connected Google Sheet is empty.
+ */
+export async function batchAppendWorkflowRowsToSheet(
+  accessToken: string,
+  spreadsheetId: string,
+  items: WorkflowItem[]
+): Promise<boolean> {
+  if (!items || items.length === 0) return true;
+
+  try {
+    // 1. Group items by sheetName
+    const grouped: Record<string, WorkflowItem[]> = {};
+    for (const item of items) {
+      const s = item.sheetName || DEFAULT_WORKSHEET_NAME;
+      if (!grouped[s]) grouped[s] = [];
+      grouped[s].push(item);
+    }
+
+    // 2. Fetch existing tabs to see if we need to create any
+    const metaRes = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties(title)`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+    const existingTabs = new Set<string>();
+    if (metaRes.ok) {
+      const metaData = await metaRes.json();
+      (metaData.sheets || []).forEach((sh: { properties?: { title?: string } }) => {
+        if (sh.properties?.title) existingTabs.add(sh.properties.title);
+      });
+    }
+
+    // 3. For each sheet group, ensure tab exists and append rows
+    for (const [sheetName, sheetItems] of Object.entries(grouped)) {
+      if (!existingTabs.has(sheetName)) {
+        await createWorksheetTab(accessToken, spreadsheetId, sheetName);
+        existingTabs.add(sheetName);
+      }
+
+      const rows = sheetItems.map(item => [
+        item.id,
+        item.date,
+        parseFloat(String(item.workHours || '0')) || 0,
+        item.work1 || '',
+        item.work2 || '',
+        item.work3 || '',
+        item.work4 || '',
+        parseFloat(String(item.workDueHours || '0')) || 0,
+        item.signature ? '✔️ Signed' : '❌ No Signature',
+        sheetName,
+        item.submittedAt || new Date().toLocaleString(),
+      ]);
+
+      const rangeA1 = formatA1Range(sheetName, 'A1');
+      await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(rangeA1)}:append?valueInputOption=USER_ENTERED`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            values: rows,
+          }),
+        }
+      );
+
+      triggerAutoResizeAndFormatting(accessToken, spreadsheetId, sheetName).catch(() => {});
+    }
+
+    return true;
+  } catch (err) {
+    console.error('Failed to batch append rows to Google Sheet:', err);
     return false;
   }
 }
@@ -632,8 +748,9 @@ export async function updateWorkflowRowInSheet(
     const sheetName = item.sheetName || DEFAULT_WORKSHEET_NAME;
 
     // 1. Fetch column A (Record IDs) to find the exact row number
+    const rangeColA = formatA1Range(sheetName, 'A:A');
     const getRes = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!A:A`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(rangeColA)}`,
       {
         headers: { Authorization: `Bearer ${accessToken}` },
       }
@@ -669,8 +786,9 @@ export async function updateWorkflowRowInSheet(
     ];
 
     // 2. Overwrite the specific row range A{rowNumber}:K{rowNumber}
+    const rowRange = formatA1Range(sheetName, `A${rowNumber}:K${rowNumber}`);
     const updateRes = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!A${rowNumber}:K${rowNumber}?valueInputOption=USER_ENTERED`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(rowRange)}?valueInputOption=USER_ENTERED`,
       {
         method: 'PUT',
         headers: {
@@ -720,8 +838,9 @@ export async function deleteWorkflowRowFromSheet(
     const sheetId = sheetObj.properties.sheetId;
 
     // 2. Fetch Column A to find the 0-indexed row index
+    const rangeColA = formatA1Range(sheetName, 'A:A');
     const getRes = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!A:A`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(rangeColA)}`,
       {
         headers: { Authorization: `Bearer ${accessToken}` },
       }
@@ -776,8 +895,9 @@ export async function clearWorksheetRowsInSheet(
   sheetName: string
 ): Promise<boolean> {
   try {
+    const rangeClear = formatA1Range(sheetName, 'A2:K');
     const res = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!A2:K:clear`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(rangeClear)}:clear`,
       {
         method: 'POST',
         headers: {
@@ -816,16 +936,22 @@ export async function fetchSpreadsheetData(
 
     if (sheetTitles.length === 0) return null;
 
-    // 2. Fetch rows for all sheets via batchGet
-    const ranges = sheetTitles.map(t => `${encodeURIComponent(t)}!A2:K`);
+    // 2. Fetch rows for all sheets via batchGet using safe single-quoted ranges
+    const queryRanges = sheetTitles
+      .map(t => `ranges=${encodeURIComponent(formatA1Range(t, 'A2:K'))}`)
+      .join('&');
+
     const batchRes = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchGet?${ranges.map(r => `ranges=${r}`).join('&')}`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchGet?${queryRanges}`,
       {
         headers: { Authorization: `Bearer ${accessToken}` },
       }
     );
 
-    if (!batchRes.ok) return { worksheets: sheetTitles, items: [] };
+    if (!batchRes.ok) {
+      console.warn('Could not batchGet sheet data:', batchRes.statusText);
+      return { worksheets: sheetTitles, items: [] };
+    }
     const batchData = await batchRes.json();
 
     const loadedItems: WorkflowItem[] = [];

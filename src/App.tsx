@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { WorkflowItem } from './types';
 import { Header } from './components/Header';
 import { WorkflowForm } from './components/WorkflowForm';
@@ -18,6 +18,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import {
   DEFAULT_WORKSHEET_NAME,
   appendWorkflowRowToSheet,
+  batchAppendWorkflowRowsToSheet,
   updateWorkflowRowInSheet,
   deleteWorkflowRowFromSheet,
   clearWorksheetRowsInSheet,
@@ -40,6 +41,66 @@ import {
 const ITEMS_STORAGE_KEY = 'workflow_items_history';
 const URL_STORAGE_KEY = 'workflow_apps_script_url';
 
+// Helper to safely parse and normalize workflow items
+function parseAndNormalizeItems(raw: string | null): WorkflowItem[] | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed.map((item: WorkflowItem) => ({
+        ...item,
+        sheetName: item.sheetName === 'Home Works' ? DEFAULT_WORKSHEET_NAME : (item.sheetName || DEFAULT_WORKSHEET_NAME),
+      }));
+    }
+  } catch (e) {
+    console.error('Failed to parse items', e);
+  }
+  return null;
+}
+
+// Helper to get fallback items so user NEVER sees a blank screen
+function getFallbackWorkflowItems(userId: string): WorkflowItem[] {
+  // 1. Check user-specific key
+  const userSaved = parseAndNormalizeItems(localStorage.getItem(`workflow_items_${userId}`));
+  if (userSaved && userSaved.length > 0) return userSaved;
+
+  // 2. Check legacy history key (prior to multi-user partitioning)
+  const legacySaved = parseAndNormalizeItems(localStorage.getItem(ITEMS_STORAGE_KEY));
+  if (legacySaved && legacySaved.length > 0) return legacySaved;
+
+  // 3. Check admin key if available
+  const adminSaved = parseAndNormalizeItems(localStorage.getItem('workflow_items_user_sayham_admin'));
+  if (adminSaved && adminSaved.length > 0) return adminSaved;
+
+  // 4. Fallback to initial workflow items so the table is never bare
+  return INITIAL_WORKFLOW_ITEMS;
+}
+
+// Helper to safely get worksheets
+function getFallbackWorksheets(userId: string): string[] {
+  try {
+    const userSheets = localStorage.getItem(`workflow_sheets_${userId}`);
+    if (userSheets) {
+      const parsed = JSON.parse(userSheets);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((s: string) => (s === 'Home Works' ? DEFAULT_WORKSHEET_NAME : s));
+      }
+    }
+    const legacySheets =
+      localStorage.getItem('workflow_sheets_user_sayham_admin') ||
+      localStorage.getItem('workflow_worksheets');
+    if (legacySheets) {
+      const parsed = JSON.parse(legacySheets);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((s: string) => (s === 'Home Works' ? DEFAULT_WORKSHEET_NAME : s));
+      }
+    }
+  } catch (e) {
+    console.error('Failed to get fallback worksheets', e);
+  }
+  return [DEFAULT_WORKSHEET_NAME];
+}
+
 function AppContent() {
   const { accentConfig } = useTheme();
   const { language, t } = useLanguage();
@@ -55,41 +116,10 @@ function AppContent() {
   const userSheetsKey = `workflow_sheets_${user.id}`;
   const userActiveSheetKey = `workflow_active_sheet_${user.id}`;
 
-  const [items, setItems] = useState<WorkflowItem[]>(() => {
-    try {
-      const saved = localStorage.getItem(userItemsKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed.map((item: WorkflowItem) => ({
-            ...item,
-            sheetName: item.sheetName === 'Home Works' ? DEFAULT_WORKSHEET_NAME : (item.sheetName || DEFAULT_WORKSHEET_NAME),
-          }));
-        }
-      }
-      if (user.id === 'user_sayham_admin') return INITIAL_WORKFLOW_ITEMS;
-      return [];
-    } catch (e) {
-      console.error('Failed to parse saved workflow items', e);
-      return [];
-    }
-  });
+  const [items, setItems] = useState<WorkflowItem[]>(() => getFallbackWorkflowItems(user.id));
 
   // Multiple worksheets list (defaults to ['Untitled Worksheet'])
-  const [worksheets, setWorksheets] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem(userSheetsKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((s: string) => (s === 'Home Works' ? DEFAULT_WORKSHEET_NAME : s));
-        }
-      }
-    } catch (e) {
-      console.error('Failed to parse saved worksheets', e);
-    }
-    return [DEFAULT_WORKSHEET_NAME];
-  });
+  const [worksheets, setWorksheets] = useState<string[]>(() => getFallbackWorksheets(user.id));
 
   // Currently active worksheet
   const [activeSheet, setActiveSheet] = useState<string>(() => {
@@ -97,6 +127,16 @@ function AppContent() {
     if (saved === 'Home Works' || !saved) return DEFAULT_WORKSHEET_NAME;
     return saved;
   });
+
+  const itemsRef = useRef(items);
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
+
+  const worksheetsRef = useRef(worksheets);
+  useEffect(() => {
+    worksheetsRef.current = worksheets;
+  }, [worksheets]);
 
   const [webAppUrl, setWebAppUrl] = useState<string>(() => {
     const metaEnv = (import.meta as unknown as { env?: Record<string, string> }).env;
@@ -116,27 +156,15 @@ function AppContent() {
   // Switch partition dynamically if user changes
   useEffect(() => {
     try {
-      const savedItems = localStorage.getItem(userItemsKey);
-      if (savedItems) {
-        setItems(JSON.parse(savedItems));
-      } else if (user.id === 'user_sayham_admin') {
-        setItems(INITIAL_WORKFLOW_ITEMS);
-      } else {
-        setItems([]);
-      }
+      const loadedItems = getFallbackWorkflowItems(user.id);
+      setItems(loadedItems);
 
-      const savedSheets = localStorage.getItem(userSheetsKey);
-      if (savedSheets) {
-        const parsed = JSON.parse(savedSheets);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setWorksheets(parsed.map((s: string) => (s === 'Home Works' ? DEFAULT_WORKSHEET_NAME : s)));
-        }
-      } else {
-        setWorksheets([DEFAULT_WORKSHEET_NAME]);
-      }
+      const loadedSheets = getFallbackWorksheets(user.id);
+      setWorksheets(loadedSheets);
 
       const savedActive = localStorage.getItem(userActiveSheetKey);
-      setActiveSheet(savedActive === 'Home Works' || !savedActive ? DEFAULT_WORKSHEET_NAME : savedActive);
+      const chosenActive = savedActive === 'Home Works' || !savedActive ? DEFAULT_WORKSHEET_NAME : savedActive;
+      setActiveSheet(loadedSheets.includes(chosenActive) ? chosenActive : loadedSheets[0]);
     } catch (e) {
       console.error('Error switching user storage partition', e);
     }
@@ -146,23 +174,58 @@ function AppContent() {
   useEffect(() => {
     let isMounted = true;
     if (user.provider === 'google' && accessToken && spreadsheetInfo?.id) {
-      fetchSpreadsheetData(accessToken, spreadsheetInfo.id).then(data => {
+      fetchSpreadsheetData(accessToken, spreadsheetInfo.id).then(async data => {
         if (!isMounted || !data) return;
+
+        // 1. Sync Worksheets: keep Google Sheet tabs and local tabs merged
         if (data.worksheets && data.worksheets.length > 0) {
-          setWorksheets(data.worksheets);
-          if (!data.worksheets.includes(activeSheet)) {
-            setActiveSheet(data.worksheets[0]);
+          const mergedSheets = Array.from(new Set([...data.worksheets, ...worksheetsRef.current]));
+          setWorksheets(mergedSheets);
+          try {
+            localStorage.setItem(userSheetsKey, JSON.stringify(mergedSheets));
+          } catch (e) {
+            console.error('Failed to save merged worksheets', e);
           }
+
+          setActiveSheet(current => {
+            if (mergedSheets.includes(current)) return current;
+            return mergedSheets[0];
+          });
         }
+
+        // 2. Sync Workflow Items:
         if (data.items && data.items.length > 0) {
-          setItems(data.items);
+          // Google Sheets has data! Merge any local items not yet in Google Sheets, but Google Sheets takes priority
+          const sheetItemIds = new Set(data.items.map(i => i.id));
+          const localOnlyItems = itemsRef.current.filter(i => !sheetItemIds.has(i.id));
+
+          if (localOnlyItems.length > 0) {
+            // Upload any local items created while offline or prior to login
+            await batchAppendWorkflowRowsToSheet(accessToken, spreadsheetInfo.id, localOnlyItems);
+          }
+
+          const combinedItems = [...localOnlyItems, ...data.items];
+          setItems(combinedItems);
+          try {
+            localStorage.setItem(userItemsKey, JSON.stringify(combinedItems));
+          } catch (e) {
+            console.error('Failed to cache sheets data', e);
+          }
+        } else if (data.items && data.items.length === 0) {
+          // Google Sheet is brand new or empty!
+          // Auto-upload existing items so the user never loses their data in Google Sheets
+          const localItems = itemsRef.current;
+          if (localItems && localItems.length > 0) {
+            console.log('Populating Google Sheet with local workflow items...');
+            await batchAppendWorkflowRowsToSheet(accessToken, spreadsheetInfo.id, localItems);
+          }
         }
       });
     }
     return () => {
       isMounted = false;
     };
-  }, [user.provider, accessToken, spreadsheetInfo?.id]);
+  }, [user.provider, accessToken, spreadsheetInfo?.id, userSheetsKey, userItemsKey]);
 
   // Sync worksheets to user's localStorage
   useEffect(() => {

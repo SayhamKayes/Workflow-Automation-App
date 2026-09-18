@@ -18,6 +18,10 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import {
   DEFAULT_WORKSHEET_NAME,
   appendWorkflowRowToSheet,
+  updateWorkflowRowInSheet,
+  deleteWorkflowRowFromSheet,
+  clearWorksheetRowsInSheet,
+  fetchSpreadsheetData,
   createWorksheetTab,
   renameWorksheetTab,
   deleteWorksheetTab,
@@ -138,6 +142,28 @@ function AppContent() {
     }
   }, [user.id, userItemsKey, userSheetsKey, userActiveSheetKey]);
 
+  // When Google Account is connected with a personal spreadsheet, load real-time sheets & rows from Google Sheets
+  useEffect(() => {
+    let isMounted = true;
+    if (user.provider === 'google' && accessToken && spreadsheetInfo?.id) {
+      fetchSpreadsheetData(accessToken, spreadsheetInfo.id).then(data => {
+        if (!isMounted || !data) return;
+        if (data.worksheets && data.worksheets.length > 0) {
+          setWorksheets(data.worksheets);
+          if (!data.worksheets.includes(activeSheet)) {
+            setActiveSheet(data.worksheets[0]);
+          }
+        }
+        if (data.items && data.items.length > 0) {
+          setItems(data.items);
+        }
+      });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [user.provider, accessToken, spreadsheetInfo?.id]);
+
   // Sync worksheets to user's localStorage
   useEffect(() => {
     try {
@@ -247,12 +273,35 @@ function AppContent() {
     }
   };
 
-  const handleUpdateEntry = (updatedItem: WorkflowItem) => {
+  const handleUpdateEntry = async (updatedItem: WorkflowItem) => {
+    // 1. Update local state immediately for instant responsive UI
     setItems(prev => prev.map(item => (item.id === updatedItem.id ? updatedItem : item)));
+
+    // 2. If Google Sheets connected, sync update directly to Google Sheets!
+    if (user.provider === 'google' && accessToken && spreadsheetInfo?.id) {
+      try {
+        await updateWorkflowRowInSheet(accessToken, spreadsheetInfo.id, updatedItem);
+      } catch (err) {
+        console.warn('Could not update row in Google Sheets', err);
+      }
+    }
   };
 
-  const handleDeleteEntry = (id: string) => {
+  const handleDeleteEntry = async (id: string) => {
+    const itemToDelete = items.find(i => i.id === id);
+    const targetSheet = itemToDelete?.sheetName || activeSheet || DEFAULT_WORKSHEET_NAME;
+
+    // 1. Update local state immediately
     setItems(prev => prev.filter(item => item.id !== id));
+
+    // 2. If Google Sheets connected, delete row from Google Sheets!
+    if (user.provider === 'google' && accessToken && spreadsheetInfo?.id) {
+      try {
+        await deleteWorkflowRowFromSheet(accessToken, spreadsheetInfo.id, targetSheet, id);
+      } catch (err) {
+        console.warn('Could not delete row from Google Sheets', err);
+      }
+    }
   };
 
   // Today's Date String
@@ -312,10 +361,20 @@ function AppContent() {
     setItems(prev => [entry, ...prev]);
   };
 
-  const handleClearDemoData = () => {
+  const handleClearDemoData = async () => {
     const msg = t.preview.clearDataConfirm.replace('{sheet}', activeSheet);
     if (window.confirm(msg)) {
+      // 1. Clear locally
       setItems(prev => prev.filter(i => (i.sheetName || DEFAULT_WORKSHEET_NAME) !== activeSheet));
+
+      // 2. If Google Sheets connected, clear data in active worksheet!
+      if (user.provider === 'google' && accessToken && spreadsheetInfo?.id) {
+        try {
+          await clearWorksheetRowsInSheet(accessToken, spreadsheetInfo.id, activeSheet);
+        } catch (err) {
+          console.warn('Could not clear sheet in Google Sheets', err);
+        }
+      }
     }
   };
 

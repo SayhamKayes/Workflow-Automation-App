@@ -619,3 +619,246 @@ async function triggerAutoResizeAndFormatting(
     console.warn('Could not auto-resize/format sheet columns:', err);
   }
 }
+
+/**
+ * Updates an existing row in the user's Google Spreadsheet matching item.id (stored in column A).
+ */
+export async function updateWorkflowRowInSheet(
+  accessToken: string,
+  spreadsheetId: string,
+  item: WorkflowItem
+): Promise<boolean> {
+  try {
+    const sheetName = item.sheetName || DEFAULT_WORKSHEET_NAME;
+
+    // 1. Fetch column A (Record IDs) to find the exact row number
+    const getRes = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!A:A`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+    if (!getRes.ok) return false;
+    const getData = await getRes.json();
+    const rows = getData.values as string[][] | undefined;
+    if (!rows || rows.length === 0) return false;
+
+    // Find the row index where column A matches item.id
+    const rowIndex = rows.findIndex(r => r && r[0] === item.id);
+    if (rowIndex === -1) {
+      console.warn(`Could not find row with ID ${item.id} in sheet ${sheetName}`);
+      return false;
+    }
+    const rowNumber = rowIndex + 1; // 1-indexed for Sheets
+
+    const parsedWorkHours = parseFloat(String(item.workHours || '0')) || 0;
+    const parsedDueHours = parseFloat(String(item.workDueHours || '0')) || 0;
+
+    const row = [
+      item.id,
+      item.date,
+      parsedWorkHours,
+      item.work1 || '',
+      item.work2 || '',
+      item.work3 || '',
+      item.work4 || '',
+      parsedDueHours,
+      item.signature ? '✔️ Signed' : '❌ No Signature',
+      sheetName,
+      item.submittedAt || new Date().toLocaleString(),
+    ];
+
+    // 2. Overwrite the specific row range A{rowNumber}:K{rowNumber}
+    const updateRes = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!A${rowNumber}:K${rowNumber}?valueInputOption=USER_ENTERED`,
+      {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          values: [row],
+        }),
+      }
+    );
+
+    if (updateRes.ok) {
+      triggerAutoResizeAndFormatting(accessToken, spreadsheetId, sheetName).catch(() => {});
+    }
+
+    return updateRes.ok;
+  } catch (err) {
+    console.error('Failed to update row in Google Sheet:', err);
+    return false;
+  }
+}
+
+/**
+ * Deletes a row from the user's Google Spreadsheet matching itemId (stored in column A).
+ */
+export async function deleteWorkflowRowFromSheet(
+  accessToken: string,
+  spreadsheetId: string,
+  sheetName: string,
+  itemId: string
+): Promise<boolean> {
+  try {
+    // 1. Fetch spreadsheet metadata to get numeric sheetId
+    const metaRes = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+    if (!metaRes.ok) return false;
+    const metaData = await metaRes.json();
+    const sheetObj = metaData.sheets?.find(
+      (s: { properties?: { title?: string; sheetId?: number } }) => s.properties?.title === sheetName
+    );
+    if (!sheetObj || sheetObj.properties?.sheetId === undefined) return false;
+    const sheetId = sheetObj.properties.sheetId;
+
+    // 2. Fetch Column A to find the 0-indexed row index
+    const getRes = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!A:A`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+    if (!getRes.ok) return false;
+    const getData = await getRes.json();
+    const rows = getData.values as string[][] | undefined;
+    if (!rows || rows.length === 0) return false;
+
+    const rowIndex = rows.findIndex(r => r && r[0] === itemId);
+    if (rowIndex === -1) return false;
+
+    // 3. Delete the specific row using deleteDimension batchUpdate
+    const delRes = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          requests: [
+            {
+              deleteDimension: {
+                range: {
+                  sheetId,
+                  dimension: 'ROWS',
+                  startIndex: rowIndex,
+                  endIndex: rowIndex + 1,
+                },
+              },
+            },
+          ],
+        }),
+      }
+    );
+
+    return delRes.ok;
+  } catch (err) {
+    console.error('Failed to delete row from Google Sheet:', err);
+    return false;
+  }
+}
+
+/**
+ * Clears all data rows in a worksheet tab while preserving the header row.
+ */
+export async function clearWorksheetRowsInSheet(
+  accessToken: string,
+  spreadsheetId: string,
+  sheetName: string
+): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!A2:K:clear`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    return res.ok;
+  } catch (err) {
+    console.error('Failed to clear worksheet data in Google Sheet:', err);
+    return false;
+  }
+}
+
+/**
+ * Loads all worksheet tabs and their workflow entries directly from Google Sheets.
+ */
+export async function fetchSpreadsheetData(
+  accessToken: string,
+  spreadsheetId: string
+): Promise<{ worksheets: string[]; items: WorkflowItem[] } | null> {
+  try {
+    // 1. Fetch all sheet tab names
+    const metaRes = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties(title,sheetId)`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+    if (!metaRes.ok) return null;
+    const metaData = await metaRes.json();
+    const sheetTitles = (metaData.sheets || [])
+      .map((s: { properties?: { title?: string } }) => s.properties?.title)
+      .filter(Boolean) as string[];
+
+    if (sheetTitles.length === 0) return null;
+
+    // 2. Fetch rows for all sheets via batchGet
+    const ranges = sheetTitles.map(t => `${encodeURIComponent(t)}!A2:K`);
+    const batchRes = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchGet?${ranges.map(r => `ranges=${r}`).join('&')}`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+
+    if (!batchRes.ok) return { worksheets: sheetTitles, items: [] };
+    const batchData = await batchRes.json();
+
+    const loadedItems: WorkflowItem[] = [];
+
+    (batchData.valueRanges || []).forEach((vr: { range?: string; values?: (string | number)[][] }, idx: number) => {
+      const sheetName = sheetTitles[idx] || DEFAULT_WORKSHEET_NAME;
+      const rows = vr.values || [];
+
+      rows.forEach((r, rowIdx) => {
+        if (!r || r.length === 0 || !r[1]) return; // Skip empty rows or rows without date
+        loadedItems.push({
+          id: String(r[0] || `item_${Date.now()}_${idx}_${rowIdx}`),
+          date: String(r[1] || ''),
+          workHours: String(r[2] ?? '0'),
+          work1: String(r[3] || ''),
+          work2: String(r[4] || ''),
+          work3: String(r[5] || ''),
+          work4: String(r[6] || ''),
+          workDueHours: String(r[7] ?? '0'),
+          signature: r[8] && String(r[8]).includes('Signed') ? 'attached' : '',
+          sheetName: String(r[9] || sheetName),
+          submittedAt: String(r[10] || ''),
+        });
+      });
+    });
+
+    return {
+      worksheets: sheetTitles,
+      items: loadedItems,
+    };
+  } catch (err) {
+    console.error('Failed to fetch spreadsheet data from Google Sheets:', err);
+    return null;
+  }
+}
+

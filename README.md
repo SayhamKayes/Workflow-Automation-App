@@ -1,5 +1,5 @@
 <div align="center">
-  <a href="https://logcrafter.vercel.app/"><img src="/public/LogCrafter-README.png" alt="LogCrafter Logo" width="300" /></a>
+  <a href="https://logcrafter.vercel.app/" target="_blank"><img src="/public/LogCrafter-README.png" alt="LogCrafter Logo" width="300" /></a>
 
   <p align="center">
     A modern, bilingual task logging and workflow management web application with seamless Google Sheets integration, automated monthly headers, and voice input.

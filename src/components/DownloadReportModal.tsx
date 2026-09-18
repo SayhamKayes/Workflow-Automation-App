@@ -190,6 +190,15 @@ export const DownloadReportModal: React.FC<DownloadReportModalProps> = ({
       return;
     }
 
+    // On mobile devices, native window.print() directly triggers the OS print/share dialog reliably
+    const isMobileDevice =
+      typeof navigator !== 'undefined' &&
+      /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobileDevice) {
+      window.print();
+      return;
+    }
+
     // Remove any previous print iframe
     const oldIframe = document.getElementById('print-workflow-iframe');
     if (oldIframe) {
@@ -331,7 +340,7 @@ export const DownloadReportModal: React.FC<DownloadReportModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 print:p-0 print:bg-white print:static">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-5 print:p-0 print:bg-white print:static">
       {/* Print Specific CSS isolation fallback for Ctrl+P */}
       <style>{`
         @media print {
@@ -369,23 +378,23 @@ export const DownloadReportModal: React.FC<DownloadReportModalProps> = ({
       `}</style>
 
       {/* Main Modal Container */}
-      <div className="bg-slate-900 text-slate-100 w-full max-w-5xl rounded-3xl border border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      <div className="bg-slate-900 text-slate-100 w-full max-w-5xl rounded-2xl sm:rounded-3xl border border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header Bar - Hidden during print */}
-        <div className="no-print p-4 sm:p-6 border-b border-slate-800 bg-slate-900/95 backdrop-blur-md flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0 z-20">
+        <div className="no-print p-3.5 sm:p-6 border-b border-slate-800 bg-slate-900/95 backdrop-blur-md flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0 z-20">
           <div className="flex items-center gap-3">
             <div
-              className={`w-10 h-10 rounded-2xl flex items-center justify-center ${accentConfig.bgLight} ${accentConfig.textClass} border ${accentConfig.borderLight} shadow-md`}
+              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center ${accentConfig.bgLight} ${accentConfig.textClass} border ${accentConfig.borderLight} shadow-md`}
             >
-              <Download className="w-5 h-5" />
+              <Download className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-black text-white flex items-center gap-2">
+              <h2 className="text-base sm:text-xl font-black text-white flex items-center gap-2">
                 <span>{t.downloadReportModal.modalTitle}</span>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                <span className="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
                   PDF & Print Ready
                 </span>
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-[11px] sm:text-xs text-slate-400">
                 {t.downloadReportModal.modalSub}
               </p>
             </div>
@@ -396,7 +405,7 @@ export const DownloadReportModal: React.FC<DownloadReportModalProps> = ({
             <button
               type="button"
               onClick={handlePrint}
-              className={`px-4 py-2 rounded-xl bg-gradient-to-r ${accentConfig.gradient} text-white font-bold text-xs flex items-center gap-2 shadow-lg ${accentConfig.shadow} hover:scale-102 active:scale-98 transition-all cursor-pointer`}
+              className={`px-3.5 sm:px-4 py-2 rounded-xl bg-gradient-to-r ${accentConfig.gradient} text-white font-bold text-xs flex items-center gap-2 shadow-lg ${accentConfig.shadow} hover:scale-102 active:scale-98 transition-all cursor-pointer`}
             >
               <Printer className="w-4 h-4" />
               <span>{t.downloadReportModal.printPdfBtn}</span>
@@ -423,7 +432,7 @@ export const DownloadReportModal: React.FC<DownloadReportModalProps> = ({
         </div>
 
         {/* Filter Controls Toolbar - Hidden during print */}
-        <div className="no-print bg-slate-950/80 p-4 border-b border-slate-800/80 flex flex-wrap items-center gap-3 text-xs shrink-0">
+        <div className="no-print bg-slate-950/80 p-3 sm:p-4 border-b border-slate-800/80 flex flex-wrap items-center gap-2.5 sm:gap-3 text-xs shrink-0">
           {/* Worksheet Scope */}
           <div className="flex items-center gap-1.5">
             <Layers className="w-4 h-4 text-slate-400" />
@@ -483,7 +492,7 @@ export const DownloadReportModal: React.FC<DownloadReportModalProps> = ({
           )}
 
           {/* Sort By */}
-          <div className="flex items-center gap-1.5 ml-auto">
+          <div className="flex items-center gap-1.5 sm:ml-auto">
             <ArrowUpDown className="w-4 h-4 text-slate-400" />
             <span className="text-slate-400 font-medium">{t.downloadReportModal.sortLabel}:</span>
             <select
@@ -500,11 +509,11 @@ export const DownloadReportModal: React.FC<DownloadReportModalProps> = ({
         </div>
 
         {/* Scrollable Document Preview Area - flex-col ensures white card wraps all rows */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-950 flex flex-col items-center">
+        <div className="flex-1 overflow-y-auto p-2.5 sm:p-8 bg-slate-950 flex flex-col items-center">
           {/* Printable Report Document Card */}
           <div
             id="printable-workflow-report"
-            className="w-full max-w-4xl bg-white text-slate-900 rounded-2xl shadow-2xl p-6 sm:p-10 border border-slate-200 shrink-0 my-0"
+            className="w-full max-w-4xl bg-white text-slate-900 rounded-xl sm:rounded-2xl shadow-2xl p-4 sm:p-10 border border-slate-200 shrink-0 my-0"
             style={{ minHeight: 'fit-content' }}
           >
             {/* 1. Official Header */}

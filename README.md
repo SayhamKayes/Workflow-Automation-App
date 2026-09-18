@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" alt="LogCrafter Banner" width="800" />
+  <img src="LogCrafter.png" alt="LogCrafter Banner" width="800" />
 
   <h1 align="center">LogCrafter</h1>
 

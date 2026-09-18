@@ -101,7 +101,7 @@ export const LoginScreen: React.FC = () => {
           </div>
           <div>
             <span className="font-extrabold text-sm tracking-tight text-slate-900 dark:text-white block leading-tight">
-              Workflow Automation
+              LogCrafter
             </span>
             <span
               className="text-[11px] font-bold transition-colors duration-300"
@@ -259,7 +259,7 @@ export const LoginScreen: React.FC = () => {
                 <>
                   Welcome to{' '}
                   <span className="transition-colors duration-300" style={{ color: accentConfig.hex }}>
-                    Workflow Panel
+                    LogCrafter
                   </span>
                 </>
               )}
@@ -459,7 +459,7 @@ export const LoginScreen: React.FC = () => {
 
       {/* 4. Footer */}
       <footer className="relative z-10 py-4 text-center text-xs text-slate-500 dark:text-slate-500">
-        Workflow Automation | Open Source MIT License
+        LogCrafter | Open Source MIT License
       </footer>
 
       {/* 5. Google Cloud Client ID Setup Guide Modal */}

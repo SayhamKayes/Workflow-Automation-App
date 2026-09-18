@@ -8,6 +8,7 @@ import { WorkVisualOverview } from './components/WorkVisualOverview';
 import { AppsScriptModal } from './components/AppsScriptModal';
 import { SettingsModal } from './components/SettingsModal';
 import { StatsModal } from './components/StatsModal';
+import { DownloadReportModal } from './components/DownloadReportModal';
 import { EditEntryModal } from './components/EditEntryModal';
 import { LoginScreen } from './components/LoginScreen';
 import { MobileBottomNav, MobileTab } from './components/MobileBottomNav';
@@ -35,6 +36,7 @@ import {
   Database,
   ShieldCheck,
   TrendingUp,
+  Download,
   ExternalLink,
 } from 'lucide-react';
 
@@ -179,6 +181,7 @@ function AppContent() {
   const [isAppsScriptModalOpen, setIsAppsScriptModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
+  const [isDownloadReportModalOpen, setIsDownloadReportModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<WorkflowItem | null>(null);
   const [mobileTab, setMobileTab] = useState<MobileTab>('progress');
 
@@ -559,6 +562,17 @@ function AppContent() {
 
             {/* Quick Actions & Stats Buttons */}
             <div className="flex flex-wrap items-center gap-3">
+              {/* Download Workflow Report Button */}
+              <button
+                type="button"
+                id="hero-download-workflow-btn"
+                onClick={() => setIsDownloadReportModalOpen(true)}
+                className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/20 transition-all flex items-center gap-2 backdrop-blur-xs active:scale-95 cursor-pointer shadow-sm"
+              >
+                <Download className="w-4 h-4 text-white" />
+                <span>{t.visualOverview.downloadWorkflowBtn}</span>
+              </button>
+
               {/* Header / Hero Stats Button */}
               <button
                 type="button"
@@ -717,6 +731,7 @@ function AppContent() {
             activeSheet={activeSheet}
             onSelectSheet={setActiveSheet}
             onOpenStatsModal={() => setIsStatsModalOpen(true)}
+            onOpenDownloadModal={() => setIsDownloadReportModalOpen(true)}
           />
         </div>
 
@@ -732,6 +747,7 @@ function AppContent() {
                 activeSheet={activeSheet}
                 onSelectSheet={setActiveSheet}
                 onOpenStatsModal={() => setIsStatsModalOpen(true)}
+                onOpenDownloadModal={() => setIsDownloadReportModalOpen(true)}
               />
             </div>
           )}
@@ -814,6 +830,15 @@ function AppContent() {
         items={items}
         worksheets={worksheets}
         activeSheet={activeSheet}
+      />
+
+      <DownloadReportModal
+        isOpen={isDownloadReportModalOpen}
+        onClose={() => setIsDownloadReportModalOpen(false)}
+        items={items}
+        worksheets={worksheets}
+        activeSheet={activeSheet}
+        user={user}
       />
 
       <AppsScriptModal

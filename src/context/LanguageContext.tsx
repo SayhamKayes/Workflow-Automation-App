@@ -232,6 +232,43 @@ export interface Translations {
     onTrack: string;
     goalReached: string;
     noWorkYet: string;
+    barChartTitle: string;
+    barChartSub: string;
+    thisMonth: string;
+    past6Months: string;
+    past1Year: string;
+    customRange: string;
+    peakOutput: string;
+    scopeActive: string;
+    scopeAll: string;
+    downloadWorkflowBtn: string;
+    noTimelineData: string;
+    loggedHours: string;
+    tasksCount: string;
+  };
+  downloadReportModal: {
+    modalTitle: string;
+    modalSub: string;
+    printPdfBtn: string;
+    downloadCsvBtn: string;
+    scopeLabel: string;
+    rangeLabel: string;
+    sortLabel: string;
+    sortNewest: string;
+    sortOldest: string;
+    sortHoursHigh: string;
+    sortHoursLow: string;
+    reportHeaderTitle: string;
+    generatedOn: string;
+    executiveSummary: string;
+    totalHoursLabel: string;
+    avgHoursLabel: string;
+    activeDaysLabel: string;
+    dueHoursLabel: string;
+    detailedTableTitle: string;
+    verifiedSignature: string;
+    noSignature: string;
+    officialFooter: string;
   };
   mobileNav: {
     progress: string;
@@ -473,6 +510,43 @@ const TRANSLATIONS: Record<Language, Translations> = {
       onTrack: 'In Progress',
       goalReached: 'Goal Reached',
       noWorkYet: 'No entries today',
+      barChartTitle: 'Workflow Timeline & Output Trends',
+      barChartSub: 'Interactive hours timeline breakdown & output distribution',
+      thisMonth: 'This Month',
+      past6Months: 'Past 6 Months',
+      past1Year: 'Past 1 Year',
+      customRange: 'Custom Range',
+      peakOutput: 'Peak Output',
+      scopeActive: 'Active Sheet',
+      scopeAll: 'All Worksheets',
+      downloadWorkflowBtn: 'Download Workflow',
+      noTimelineData: 'No workflow entries recorded for this time range',
+      loggedHours: 'Logged Work Hours',
+      tasksCount: 'Tasks Completed',
+    },
+    downloadReportModal: {
+      modalTitle: 'Official Workflow Report Generator',
+      modalSub: 'Customize, filter and export a professional printable PDF workflow summary',
+      printPdfBtn: 'Print / Save as PDF',
+      downloadCsvBtn: 'Export Raw CSV',
+      scopeLabel: 'Worksheet Scope',
+      rangeLabel: 'Timeline Filter',
+      sortLabel: 'Sort Records By',
+      sortNewest: 'Date (Newest First)',
+      sortOldest: 'Date (Oldest First)',
+      sortHoursHigh: 'Work Hours (High to Low)',
+      sortHoursLow: 'Work Hours (Low to High)',
+      reportHeaderTitle: 'Official LogCrafter Workflow Report',
+      generatedOn: 'Generated on',
+      executiveSummary: 'Executive Performance Summary',
+      totalHoursLabel: 'Total Work Hours',
+      avgHoursLabel: 'Avg Hours / Day',
+      activeDaysLabel: 'Active Work Days',
+      dueHoursLabel: 'Pending Due Hours',
+      detailedTableTitle: 'Complete Structured Workflow Log',
+      verifiedSignature: 'Verified ✓',
+      noSignature: 'Standard',
+      officialFooter: 'Generated securely by LogCrafter Workflow Management System. Authenticated and verified document.',
     },
     mobileNav: {
       progress: 'Progress',
@@ -712,6 +786,43 @@ const TRANSLATIONS: Record<Language, Translations> = {
       onTrack: 'চলমান',
       goalReached: 'লক্ষ্যমাত্রা অর্জিত',
       noWorkYet: 'আজ কোনো এন্ট্রি নেই',
+      barChartTitle: 'ওয়ার্কফ্লো টাইমলাইন ও আউটপুট ট্রেন্ড (বার চার্ট)',
+      barChartSub: 'দৈনিক ও মাসিক কাজের সময়ের ইন্টার‍্যাক্টিভ বার চার্ট ও আউটপুট বিশ্লেষণ',
+      thisMonth: 'এই মাস',
+      past6Months: 'বিগত ৬ মাস',
+      past1Year: 'বিগত ১ বছর',
+      customRange: 'কাস্টম রেঞ্জ',
+      peakOutput: 'সর্বোচ্চ আউটপুট',
+      scopeActive: 'সক্রিয় শিট',
+      scopeAll: 'সকল শিট',
+      downloadWorkflowBtn: 'ওয়ার্কফ্লো ডাউনলোড',
+      noTimelineData: 'এই সময়সীমায় কোনো ওয়ার্কফ্লো এন্ট্রি পাওয়া যায়নি',
+      loggedHours: 'সম্পন্ন কাজের ঘণ্টা',
+      tasksCount: 'টাস্ক সংখ্যা',
+    },
+    downloadReportModal: {
+      modalTitle: 'অফিসিয়াল ওয়ার্কফ্লো রিপোর্ট ও পিডিএফ ডাউনলোড',
+      modalSub: 'ফিল্টার করুন এবং একটি প্রফেশনাল প্রিন্টযোগ্য পিডিএফ রিপোর্ট এক্সপোর্ট করুন',
+      printPdfBtn: 'প্রিন্ট / PDF হিসেবে সংরক্ষণ',
+      downloadCsvBtn: 'CSV ফাইল এক্সপোর্ট',
+      scopeLabel: 'ওয়ার্কশিট ফিল্টার',
+      rangeLabel: 'সময়সীমা নির্বাচন',
+      sortLabel: 'সাজানোর ক্রম',
+      sortNewest: 'তারিখ (নতুন থেকে পুরাতন)',
+      sortOldest: 'তারিখ (পুরাতন থেকে নতুন)',
+      sortHoursHigh: 'কাজের সময় (বেশি থেকে কম)',
+      sortHoursLow: 'কাজের সময় (কম থেকে বেশি)',
+      reportHeaderTitle: 'অফিসিয়াল LogCrafter ওয়ার্কফ্লো রিপোর্ট',
+      generatedOn: 'রিপোর্ট তৈরির সময়',
+      executiveSummary: 'এক্সিকিউটিভ পারফরম্যান্স সামারি',
+      totalHoursLabel: 'মোট কাজের সময়',
+      avgHoursLabel: 'দৈনিক গড় সময়',
+      activeDaysLabel: 'কাজের সক্রিয় দিন',
+      dueHoursLabel: 'বাকি কাজের সময়',
+      detailedTableTitle: 'সম্পূর্ণ কাঠামোগত ওয়ার্কফ্লো লগ',
+      verifiedSignature: 'যাচাইকৃত স্বাক্ষর ✓',
+      noSignature: 'সাধারণ',
+      officialFooter: 'LogCrafter ওয়ার্কফ্লো ম্যানেজমেন্ট সিস্টেম দ্বারা সুরক্ষিতাভাবে প্রস্তুতকৃত। এটি একটি যাচাইকৃত ডিজিটাল ডকুমেন্ট।',
     },
     mobileNav: {
       progress: 'অগ্রগতি',

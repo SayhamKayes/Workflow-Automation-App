@@ -70,12 +70,8 @@ function getFallbackWorkflowItems(userId: string): WorkflowItem[] {
   const legacySaved = parseAndNormalizeItems(localStorage.getItem(ITEMS_STORAGE_KEY));
   if (legacySaved && legacySaved.length > 0) return legacySaved;
 
-  // 3. Check admin key if available
-  const adminSaved = parseAndNormalizeItems(localStorage.getItem('workflow_items_user_sayham_admin'));
-  if (adminSaved && adminSaved.length > 0) return adminSaved;
-
-  // 4. Fallback to initial workflow items so the table is never bare
-  return INITIAL_WORKFLOW_ITEMS;
+  // 3. New users start with a clean slate (no demo tasks)
+  return [];
 }
 
 // Helper to safely get worksheets

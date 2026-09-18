@@ -182,9 +182,106 @@ export const DownloadReportModal: React.FC<DownloadReportModalProps> = ({
     };
   }, [processedItems]);
 
-  // Handle native browser Print to PDF
+  // Handle high-definition vector Print to PDF via isolated iframe to guarantee 0 blank pages
   const handlePrint = () => {
-    window.print();
+    const reportElement = document.getElementById('printable-workflow-report');
+    if (!reportElement) {
+      window.print();
+      return;
+    }
+
+    // Remove any previous print iframe
+    const oldIframe = document.getElementById('print-workflow-iframe');
+    if (oldIframe) {
+      oldIframe.remove();
+    }
+
+    // Create an invisible iframe attached directly to document.body
+    const iframe = document.createElement('iframe');
+    iframe.id = 'print-workflow-iframe';
+    iframe.setAttribute(
+      'style',
+      'position: fixed; right: 0; bottom: 0; width: 0; height: 0; border: 0; visibility: hidden;'
+    );
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      window.print();
+      return;
+    }
+
+    // Gather all existing Tailwind stylesheets and fonts
+    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+      .map(node => node.outerHTML)
+      .join('\n');
+
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html lang="${language}">
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>${t.downloadReportModal.reportHeaderTitle} - ${user.name || 'LogCrafter'}</title>
+          ${styles}
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 10mm 8mm 10mm 8mm;
+            }
+            * {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              box-sizing: border-box;
+            }
+            html, body {
+              background-color: #ffffff !important;
+              color: #0f172a !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            }
+            .print-document-root {
+              width: 100% !important;
+              max-width: 100% !important;
+              background-color: #ffffff !important;
+              color: #0f172a !important;
+              padding: 8px !important;
+            }
+            table {
+              width: 100% !important;
+              border-collapse: collapse !important;
+              page-break-inside: auto !important;
+            }
+            tr {
+              page-break-inside: avoid !important;
+              page-break-after: auto !important;
+            }
+            thead {
+              display: table-header-group !important;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-document-root">
+            ${reportElement.innerHTML}
+          </div>
+        </body>
+      </html>
+    `);
+    doc.close();
+
+    // Trigger native browser print after styles load
+    setTimeout(() => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch (err) {
+        console.error('Print iframe error, fallback to window.print', err);
+        window.print();
+      }
+    }, 280);
   };
 
   // Export CSV
@@ -235,49 +332,46 @@ export const DownloadReportModal: React.FC<DownloadReportModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 print:p-0 print:bg-white print:static">
-      {/* Print Specific CSS isolation */}
+      {/* Print Specific CSS isolation fallback for Ctrl+P */}
       <style>{`
         @media print {
-          body * {
-            visibility: hidden !important;
-          }
-          #printable-workflow-report, #printable-workflow-report * {
-            visibility: visible !important;
-          }
-          #printable-workflow-report {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 20px !important;
-            box-shadow: none !important;
-            border: none !important;
-            background: white !important;
-            color: #0f172a !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
           .no-print {
             display: none !important;
           }
-          table {
-            page-break-inside: auto;
+          body {
+            background: #ffffff !important;
+            color: #000000 !important;
           }
-          tr {
-            page-break-inside: avoid;
-            page-break-after: auto;
+          .fixed.inset-0 {
+            position: static !important;
+            overflow: visible !important;
+            background: #ffffff !important;
+            padding: 0 !important;
           }
-          thead {
-            display: table-header-group;
+          .max-h-\\[92vh\\] {
+            max-height: none !important;
+            overflow: visible !important;
+            border: none !important;
+            box-shadow: none !important;
+            background: #ffffff !important;
+          }
+          .overflow-y-auto {
+            overflow: visible !important;
+          }
+          #printable-workflow-report {
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
           }
         }
       `}</style>
 
       {/* Main Modal Container */}
-      <div className="bg-slate-900 text-slate-100 w-full max-w-5xl rounded-3xl border border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[92vh] print:max-h-none print:border-none print:shadow-none print:bg-white print:text-black">
+      <div className="bg-slate-900 text-slate-100 w-full max-w-5xl rounded-3xl border border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header Bar - Hidden during print */}
-        <div className="no-print p-4 sm:p-6 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sticky top-0 z-20">
+        <div className="no-print p-4 sm:p-6 border-b border-slate-800 bg-slate-900/95 backdrop-blur-md flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0 z-20">
           <div className="flex items-center gap-3">
             <div
               className={`w-10 h-10 rounded-2xl flex items-center justify-center ${accentConfig.bgLight} ${accentConfig.textClass} border ${accentConfig.borderLight} shadow-md`}
@@ -329,7 +423,7 @@ export const DownloadReportModal: React.FC<DownloadReportModalProps> = ({
         </div>
 
         {/* Filter Controls Toolbar - Hidden during print */}
-        <div className="no-print bg-slate-950/60 p-4 border-b border-slate-800/80 flex flex-wrap items-center gap-3 text-xs">
+        <div className="no-print bg-slate-950/80 p-4 border-b border-slate-800/80 flex flex-wrap items-center gap-3 text-xs shrink-0">
           {/* Worksheet Scope */}
           <div className="flex items-center gap-1.5">
             <Layers className="w-4 h-4 text-slate-400" />
@@ -405,12 +499,13 @@ export const DownloadReportModal: React.FC<DownloadReportModalProps> = ({
           </div>
         </div>
 
-        {/* Scrollable Document Preview Area */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-950 flex justify-center print:p-0 print:bg-white print:overflow-visible">
+        {/* Scrollable Document Preview Area - flex-col ensures white card wraps all rows */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-950 flex flex-col items-center">
           {/* Printable Report Document Card */}
           <div
             id="printable-workflow-report"
-            className="w-full max-w-4xl bg-white text-slate-900 rounded-2xl shadow-xl p-6 sm:p-10 border border-slate-200 print:border-none print:shadow-none print:p-4 print:max-w-none"
+            className="w-full max-w-4xl bg-white text-slate-900 rounded-2xl shadow-2xl p-6 sm:p-10 border border-slate-200 shrink-0 my-0"
+            style={{ minHeight: 'fit-content' }}
           >
             {/* 1. Official Header */}
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between pb-6 border-b-2 border-slate-800 gap-4">
@@ -464,7 +559,7 @@ export const DownloadReportModal: React.FC<DownloadReportModalProps> = ({
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
                 {/* Total Work Hours */}
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
                   <span className="text-[11px] font-semibold text-slate-500 block">
                     {t.downloadReportModal.totalHoursLabel}
                   </span>
@@ -477,7 +572,7 @@ export const DownloadReportModal: React.FC<DownloadReportModalProps> = ({
                 </div>
 
                 {/* Avg Hours / Day */}
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
                   <span className="text-[11px] font-semibold text-slate-500 block">
                     {t.downloadReportModal.avgHoursLabel}
                   </span>
@@ -490,7 +585,7 @@ export const DownloadReportModal: React.FC<DownloadReportModalProps> = ({
                 </div>
 
                 {/* Active Work Days */}
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
                   <span className="text-[11px] font-semibold text-slate-500 block">
                     {t.downloadReportModal.activeDaysLabel}
                   </span>
@@ -503,7 +598,7 @@ export const DownloadReportModal: React.FC<DownloadReportModalProps> = ({
                 </div>
 
                 {/* Pending Due Hours */}
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
                   <span className="text-[11px] font-semibold text-slate-500 block">
                     {t.downloadReportModal.dueHoursLabel}
                   </span>
@@ -542,7 +637,7 @@ export const DownloadReportModal: React.FC<DownloadReportModalProps> = ({
                   </p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto w-full">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-slate-100 text-slate-700 font-bold border-y border-slate-300">
@@ -566,40 +661,42 @@ export const DownloadReportModal: React.FC<DownloadReportModalProps> = ({
                       {processedItems.map((item, idx) => (
                         <tr
                           key={item.id || idx}
-                          className={`hover:bg-slate-50/80 ${idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}
+                          className={`transition-colors ${
+                            idx % 2 === 1 ? 'bg-slate-50' : 'bg-white'
+                          } hover:bg-indigo-50/50`}
                         >
-                          <td className="py-2 px-2 text-center font-medium text-slate-400 text-[11px]">
+                          <td className="py-2.5 px-2 text-center font-medium text-slate-400 text-[11px]">
                             {idx + 1}
                           </td>
                           {scopeFilter === 'all' && (
-                            <td className="py-2 px-3 font-semibold text-indigo-700 text-[11px] truncate max-w-[120px]">
+                            <td className="py-2.5 px-3 font-semibold text-indigo-700 text-[11px] truncate max-w-[120px]">
                               {item.sheetName || 'Default'}
                             </td>
                           )}
-                          <td className="py-2 px-3 font-bold text-slate-900 whitespace-nowrap">
+                          <td className="py-2.5 px-3 font-bold text-slate-900 whitespace-nowrap">
                             {item.date}
                           </td>
-                          <td className="py-2 px-3 text-right font-black text-slate-950">
+                          <td className="py-2.5 px-3 text-right font-black text-slate-950">
                             {item.workHours || '0'}h
                           </td>
-                          <td className="py-2 px-3 text-slate-700 max-w-[140px] truncate" title={item.work1}>
+                          <td className="py-2.5 px-3 text-slate-700 max-w-[140px] truncate" title={item.work1}>
                             {item.work1 || '-'}
                           </td>
-                          <td className="py-2 px-3 text-slate-700 max-w-[140px] truncate" title={item.work2}>
+                          <td className="py-2.5 px-3 text-slate-700 max-w-[140px] truncate" title={item.work2}>
                             {item.work2 || '-'}
                           </td>
-                          <td className="py-2 px-3 text-slate-700 max-w-[140px] truncate" title={item.work3}>
+                          <td className="py-2.5 px-3 text-slate-700 max-w-[140px] truncate" title={item.work3}>
                             {item.work3 || '-'}
                           </td>
-                          <td className="py-2 px-3 text-slate-700 max-w-[140px] truncate" title={item.work4}>
+                          <td className="py-2.5 px-3 text-slate-700 max-w-[140px] truncate" title={item.work4}>
                             {item.work4 || '-'}
                           </td>
-                          <td className="py-2 px-3 text-right font-semibold text-amber-700">
+                          <td className="py-2.5 px-3 text-right font-semibold text-amber-700">
                             {item.workDueHours && parseFloat(item.workDueHours) > 0
                               ? `${item.workDueHours}h`
                               : '-'}
                           </td>
-                          <td className="py-2 px-3 text-center whitespace-nowrap">
+                          <td className="py-2.5 px-3 text-center whitespace-nowrap">
                             {item.signature ? (
                               <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full border border-emerald-300">
                                 <CheckCircle2 className="w-3 h-3" />

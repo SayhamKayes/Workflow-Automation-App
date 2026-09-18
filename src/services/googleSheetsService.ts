@@ -108,17 +108,19 @@ export async function initSheetHeaders(
       [
         'Record ID',
         'Date',
-        'Work Hours',
+        'Work Hours (hrs)',
         'Work 1 (Mandatory)',
         'Work 2',
         'Work 3',
         'Work 4',
-        'Due Hours',
+        'Due Hours (hrs)',
         'Signature',
         'Worksheet',
         'Submitted At',
       ],
     ];
+
+    // 1. Write Header Row values
     await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!A1:K1?valueInputOption=USER_ENTERED`,
       {
@@ -128,6 +130,80 @@ export async function initSheetHeaders(
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ values: headers }),
+      }
+    );
+
+    // 2. Fetch numeric sheetId for styling batchUpdate
+    const metaRes = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+    if (!metaRes.ok) return;
+    const metaData = await metaRes.json();
+    const sheetObj = metaData.sheets?.find(
+      (s: { properties?: { title?: string; sheetId?: number } }) => s.properties?.title === sheetName
+    );
+    if (!sheetObj || sheetObj.properties?.sheetId === undefined) return;
+    const sheetId = sheetObj.properties.sheetId;
+
+    // 3. Apply header styling: Bold, White text, Sleek Dark Navy Background, Centered, Freeze row 1
+    await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          requests: [
+            {
+              repeatCell: {
+                range: {
+                  sheetId,
+                  startRowIndex: 0,
+                  endRowIndex: 1,
+                  startColumnIndex: 0,
+                  endColumnIndex: 11,
+                },
+                cell: {
+                  userEnteredFormat: {
+                    backgroundColor: {
+                      red: 30 / 255,
+                      green: 41 / 255,
+                      blue: 59 / 255,
+                    },
+                    textFormat: {
+                      bold: true,
+                      fontSize: 10,
+                      foregroundColor: {
+                        red: 1,
+                        green: 1,
+                        blue: 1,
+                      },
+                    },
+                    horizontalAlignment: 'CENTER',
+                    verticalAlignment: 'MIDDLE',
+                  },
+                },
+                fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)',
+              },
+            },
+            {
+              updateSheetProperties: {
+                properties: {
+                  sheetId,
+                  gridProperties: {
+                    frozenRowCount: 1,
+                  },
+                },
+                fields: 'gridProperties.frozenRowCount',
+              },
+            },
+          ],
+        }),
       }
     );
   } catch (err) {
@@ -294,15 +370,20 @@ export async function appendWorkflowRowToSheet(
 ): Promise<boolean> {
   try {
     const sheetName = item.sheetName || DEFAULT_WORKSHEET_NAME;
+
+    // Convert workHours and dueHours to pure numbers so Google Sheets can automatically calculate SUM and Average upon selection
+    const parsedWorkHours = parseFloat(String(item.workHours || '0')) || 0;
+    const parsedDueHours = parseFloat(String(item.workDueHours || '0')) || 0;
+
     const row = [
       item.id,
       item.date,
-      item.workHours ? `${item.workHours} hrs` : '0 hrs',
+      parsedWorkHours,
       item.work1 || '',
       item.work2 || '',
       item.work3 || '',
       item.work4 || '',
-      item.workDueHours || '0',
+      parsedDueHours,
       item.signature ? '✔️ Signed' : '❌ No Signature',
       sheetName,
       item.submittedAt || new Date().toLocaleString(),

@@ -122,22 +122,22 @@ function doPost(e) {
 
       // খ) কলাম নাম হেডার বসানো
       const columnHeaders = [
-        "Date (তারিখ)",
-        "Work Hours (কাজের সময়)",
-        "Work 1 (ম্যান্ডেটরি)",
+        "Date",
+        "Work Hours (hrs)",
+        "Work 1 (Mandatory)",
         "Work 2",
         "Work 3",
         "Work 4",
-        "Work Due Hours (বাকি ঘণ্টা)",
-        "Signature (স্বাক্ষর স্ট্যাটাস)",
-        "Submitted At (টাইমস্ট্যাম্প)"
+        "Due Hours (hrs)",
+        "Signature",
+        "Submitted At"
       ];
       sheet.appendRow(columnHeaders);
       
       const colHeaderRowIndex = sheet.getLastRow();
       const colHeaderRange = sheet.getRange(colHeaderRowIndex, 1, 1, columnHeaders.length);
-      colHeaderRange.setBackground("#E0E7FF"); // হালকা ইন্ডিগো
-      colHeaderRange.setFontColor("#1E1B4B");
+      colHeaderRange.setBackground("#1E293B"); // ডার্ক স্লেট নেভি
+      colHeaderRange.setFontColor("#FFFFFF"); // বোল্ড সাদা টেক্সট
       colHeaderRange.setFontWeight("bold");
       colHeaderRange.setFontSize(10);
       colHeaderRange.setHorizontalAlignment("center");
@@ -148,16 +148,20 @@ function doPost(e) {
 
     // ৬. ইউজারের মূল ডেটা রো ইনসার্ট করা
     const hasSignature = signature && signature.length > 50;
-    const signatureCellVal = hasSignature ? "✔️ Signed (সংরক্ষিত)" : "❌ No Signature";
+    const signatureCellVal = hasSignature ? "✔️ Signed" : "❌ No Signature";
+
+    // ঘণ্টাগুলোকে খাঁটি সংখ্যা (number) হিসেবে সেভ করা যেন গুগল শিট সরাসরি SUM করতে পারে
+    const parsedWorkHours = workHours ? parseFloat(workHours) || 0 : 0;
+    const parsedDueHours = workDueHours ? parseFloat(workDueHours) || 0 : 0;
 
     const dataRow = [
       dateStr,
-      workHours ? workHours + " hrs" : "0 hrs",
+      parsedWorkHours,
       work1,
       work2,
       work3,
       work4,
-      workDueHours || "0",
+      parsedDueHours,
       signatureCellVal,
       new Date().toLocaleString("en-US", { timeZone: "Asia/Dhaka" })
     ];

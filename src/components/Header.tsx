@@ -79,9 +79,9 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <FileSpreadsheet className="w-5 h-5" />
           </div>
-          <div className="hidden sm:block">
+          <div className="flex flex-col justify-center min-w-0">
             <div className="flex items-center gap-2">
-              <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-tight">
+              <h1 className="text-sm sm:text-lg font-extrabold text-slate-900 dark:text-white leading-tight truncate">
                 {t.common.appName}
               </h1>
               <span
@@ -93,6 +93,10 @@ export const Header: React.FC<HeaderProps> = ({
             <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight hidden sm:block">
               {t.common.appSubtitle}
             </p>
+            <div className="sm:hidden flex items-center gap-1 text-[10.5px] font-semibold text-slate-500 dark:text-slate-400 truncate max-w-[125px]">
+              <span className={accentConfig.textClass}>📑</span>
+              <span className="truncate">{activeSheet}</span>
+            </div>
           </div>
         </div>
 

@@ -8,14 +8,14 @@ export interface GoogleSpreadsheetInfo {
 
 export const DEFAULT_WORKSHEET_NAME = 'Untitled Worksheet';
 
-const APP_SPREADSHEET_NAME = 'Dynamic Workflow - Automation';
+const APP_SPREADSHEET_NAME = 'LogCrafter - Workflow Database';
 
 /**
  * Searches user's Google Drive for an existing spreadsheet created for this app.
  */
 export async function findExistingSpreadsheet(accessToken: string): Promise<GoogleSpreadsheetInfo | null> {
   try {
-    const query = encodeURIComponent(`name = '${APP_SPREADSHEET_NAME}' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false`);
+    const query = encodeURIComponent(`(name = '${APP_SPREADSHEET_NAME}' or name = 'Dynamic Workflow - Automation') and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false`);
     const response = await fetch(
       `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,webViewLink)`,
       {

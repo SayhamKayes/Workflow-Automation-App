@@ -243,8 +243,8 @@ export interface Translations {
 const TRANSLATIONS: Record<Language, Translations> = {
   en: {
     common: {
-      appName: 'Workflow Automation',
-      appSubtitle: 'Automated Month Header • Voice Input • Multiple Worksheets',
+      appName: 'LogCrafter',
+      appSubtitle: 'Smart Task & Workflow Tracker',
       sheetsDbBadge: 'Sheets DB',
       save: 'Save',
       cancel: 'Cancel',
@@ -278,7 +278,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     },
     hero: {
       badge: 'Workflow Panel',
-      title: 'Workflow Automation',
+      title: 'LogCrafter',
       subtitle:
         'Manage multiple sheets including default "Untitled Worksheet" or custom tabs. Seamless automated monthly banners, column headers, and live database sync with Google Sheets.',
       statsBtn: 'Analytics Dashboard',
@@ -434,7 +434,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
       step3Desc: 'Click Deploy > New deployment. Select "Web app", execute as "Me", set access to "Anyone", and copy the Web App URL.',
     },
     footer: {
-      appName: 'Workflow Automation',
+      appName: 'LogCrafter',
       techStack: ' | All rights reserved | Designed & developed by',
     },
     worksheetsManager: {
@@ -481,8 +481,8 @@ const TRANSLATIONS: Record<Language, Translations> = {
   },
   bn: {
     common: {
-      appName: 'ওয়ার্কফ্লো অটোমেশন',
-      appSubtitle: 'অটোমেটেড মান্থ হেডার • ভয়েস ইনপুট • মাল্টিপল শিট',
+      appName: 'LogCrafter',
+      appSubtitle: 'স্মার্ট টাস্ক ও ওয়ার্কফ্লো ট্র্যাকার',
       sheetsDbBadge: 'Sheets DB',
       save: 'সংরক্ষণ',
       cancel: 'বাতিল',
@@ -516,7 +516,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     },
     hero: {
       badge: 'ওয়ার্কফ্লো প্যানেল',
-      title: 'ওয়ার্কফ্লো অটোমেশন',
+      title: 'LogCrafter',
       subtitle:
         'ডিফল্ট "Untitled Worksheet" ছাড়াও যতখুশি নতুন ওয়ার্কশিট খুলুন। নতুন মাস এলে স্বয়ংক্রিয়ভাবে সংশ্লিষ্ট শিটে নীল হেডার ও কলাম তৈরি হয়ে ডেটা সংরক্ষিত হবে।',
       statsBtn: 'স্ট্যাটিস্টিক্স ড্যাশবোর্ড',
@@ -672,7 +672,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
       step3Desc: 'Deploy > New deployment থেকে Web app হিসেবে ডিপ্লয় করুন (Execute as: Me, Access: Anyone)।',
     },
     footer: {
-      appName: 'ওয়ার্কফ্লো অটোমেশন',
+      appName: 'LogCrafter',
       techStack: ' | সর্বস্বত্ব সংরক্ষিত | ডিজাইন ও ডেভেলপ করেছেন',
     },
     worksheetsManager: {
